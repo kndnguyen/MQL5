@@ -1,0 +1,41 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compile-MQL5",            
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "promptOnClose": true,
+            "type": "shell",
+            "command": "C:\\Khoa\\MT5\\metaeditor64.exe",
+            "args": [
+                "/compile:\"${file}\""
+            ]
+        },
+        {   //set the label ID for the MQL5 Reference context-sensitive help to be launched
+            "label": "launch_offline_help",
+            "type": "shell",
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "command": "hh.exe",
+            "args": [
+                "mk:@MSITStore:C:\\Users\\khoa.nguyen\\AppData\\Roaming\\MetaQuotes\\Terminal\\Help\\mql5.chm::/${selectedText}.htm"
+            ]
+        }
+    ]
+}
