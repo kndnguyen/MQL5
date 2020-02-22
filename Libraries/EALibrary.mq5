@@ -30,7 +30,7 @@ double fn_SetMyPoint()
    if(Digits()==3 || Digits()==5){
       Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 10");
       myPoint=Point()*10;
-   }else if(Digits==2){
+   }else if(Digits()==2){
       Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 100");
       myPoint=Point()*100;
    }
@@ -45,7 +45,7 @@ bool fn_GetMarketInfo(double &marketInfo[],double lotSize)
    if(Digits()==3 || Digits()==5){
       marketInfo[0]  = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE)*0.1*(lotSize/0.01);    //Pip value: Value of a pip based on standard 0.01 lotSize      
       marketInfo[1]  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.1;                            //Broker spread in pips
-   }else if(Digits==2){
+   }else if(Digits()==2){
       marketInfo[0]  = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE)*0.01*(lotSize/0.01);            //Pip value: Value of a pip based on standard 0.01 lotSize      
       marketInfo[1]  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.01;                              //Broker spread in pips
    }
@@ -58,9 +58,10 @@ bool fn_GetMarketInfo(double &marketInfo[],double lotSize)
 bool fn_IsNewCandle()
 {
     static int BarsOnChart=0;
-    if (Bars == BarsOnChart)
-        return (false);
-    BarsOnChart = Bars;
+    if (Bars(_Symbol,_Period) == BarsOnChart) 
+      return (false);
+      
+    BarsOnChart = Bars(_Symbol,_Period);
         return(true);
 }
 
@@ -123,7 +124,7 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
     if (orderSLPrice != 0) request.sl = orderSLPrice;           // set SL price if specify
     
     //--- send the request
-    bool orderSendResult = OrderSend(request,result)
+    bool orderSendResult = OrderSend(request,result);
     int answer=result.retcode;
     if(!orderSendResult)
     {
@@ -192,6 +193,7 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
 }
 
 
+/**
 //+------------------------------------------------------------------+
 //| Function to return Total running profit/loss in pips
 //+------------------------------------------------------------------+
@@ -713,4 +715,4 @@ double fn_GetEntryPrice(double price, TRADE_DIRECTION tradeDirection, ENTRY_TYPE
 }
 
 
-
+**/
