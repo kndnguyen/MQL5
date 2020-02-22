@@ -212,7 +212,7 @@ int fn_GetRunningProfitLossPip(int magicNumber,double myPoint)
          }
       }
    }
-   
+   //some comment
    result = totPips;
 
    return result;
