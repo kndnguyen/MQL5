@@ -11,7 +11,7 @@
 enum TRADE_DIRECTION {
    LONG=1,
    SHORT=-1,
-   BOTH=0,
+   HEDGE=0,
 };
 
 enum ENTRY_TYPE
@@ -24,7 +24,7 @@ enum ENTRY_TYPE
 //+------------------------------------------------------------------+
 //| Function to set 3 digits or 5 digits depending to Broker
 //+------------------------------------------------------------------+
-double fn_SetMyPoint()
+double fn_SetMyPoint() export
 {
    double myPoint=Point();
    if(Digits()==3 || Digits()==5){
@@ -40,7 +40,7 @@ double fn_SetMyPoint()
 //+------------------------------------------------------------------+
 //| Function to return an array containing Pip Value | Spreads in pips | Min Stop Loss in pips 
 //+------------------------------------------------------------------+
-bool fn_GetMarketInfo(double &marketInfo[],double lotSize)
+bool fn_GetMarketInfo(double &marketInfo[],double lotSize) export
 {
    if(Digits()==3 || Digits()==5){
       marketInfo[0]  = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE)*0.1*(lotSize/0.01);    //Pip value: Value of a pip based on standard 0.01 lotSize      
@@ -55,7 +55,7 @@ bool fn_GetMarketInfo(double &marketInfo[],double lotSize)
 //+------------------------------------------------------------------+
 // Function to check if its a new candle
 //+------------------------------------------------------------------+
-bool fn_IsNewCandle()
+bool fn_IsNewCandle() export
 {
     static int BarsOnChart=0;
     if (Bars(_Symbol,_Period) == BarsOnChart) 
@@ -68,7 +68,7 @@ bool fn_IsNewCandle()
 //+------------------------------------------------------------------+
 //| Function to generate Magic Number
 //+------------------------------------------------------------------+
-int fn_GenerateMagicNumber(int trial)
+int fn_GenerateMagicNumber(int trial) export
 {
    int result=0; 
    result = MathRand();
@@ -86,6 +86,43 @@ int fn_GenerateMagicNumber(int trial)
    return result;
 }
 
+/*
+//+------------------------------------------------------------------+
+//| Function to check for server connection
+//+------------------------------------------------------------------+
+string fn_IsConnectedToBroker()
+{
+   string connectionStatus = "Disconnected";
+   //--Make sure to set EventSetMillisecondTimer(1000); at OnInit())
+   static bool alarmSounded=false;
+   
+   if(IsConnected()){
+      connectionStatus = "Connected";
+      if(!alarmSounded){
+         Alert("We have reconnected to the Broker server at...",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
+         alarmSounded=true;
+      }
+   }
+   else{
+      if(alarmSounded){
+         Alert("We lost the Broker server at...",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
+         alarmSounded=false;
+      }
+   } 
+   
+   return connectionStatus;
+}
+
+*/
+
+
+
+
+
+
+
+
+
 //+------------------------------------------------------------------+
 //| Function to place immediate order
 //+------------------------------------------------------------------+
@@ -95,7 +132,7 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
                             ,double orderTPPrice
                             ,string orderComment
                             ,int    orderMagicNum
-                            )
+                            ) export
 {
     long ticket = 0;
     //--- declare and initialize the trade request and result of trade request
@@ -193,14 +230,14 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
 }
 
 
-/**
+/*
 //+------------------------------------------------------------------+
 //| Function to return Total running profit/loss in pips
 //+------------------------------------------------------------------+
-int fn_GetRunningProfitLossPip(int magicNumber,double myPoint)
+int fn_GetRunningPL(int magicNumber,double myPoint,double &result[])
 {
-   int result=0;
    double totPips=0;
+   double totAmt=0;
 
    for(int i=0;i < OrdersTotal();i++) {
       if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)){
@@ -219,8 +256,9 @@ int fn_GetRunningProfitLossPip(int magicNumber,double myPoint)
 
    return result;
 }
+*/
 
-
+/**
 //+------------------------------------------------------------------+
 //| Function to return individual order prefit/loss in pips
 //+------------------------------------------------------------------+
@@ -578,31 +616,7 @@ string fn_RemainingTime()
    return remainTime;
 }
 
-//+------------------------------------------------------------------+
-//| Function to check for server connection
-//+------------------------------------------------------------------+
-string fn_IsConnectedToBroker()
-{
-   string connectionStatus = "Disconnected";
-   //--Make sure to set EventSetMillisecondTimer(1000); at OnInit())
-   static bool alarmSounded=false;
-   
-   if(IsConnected()){
-      connectionStatus = "Connected";
-      if(!alarmSounded){
-         Alert("We have reconnected to the Broker server at...",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
-         alarmSounded=true;
-      }
-   }
-   else{
-      if(alarmSounded){
-         Alert("We lost the Broker server at...",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
-         alarmSounded=false;
-      }
-   } 
-   
-   return connectionStatus;
-}
+
 
 
 //+------------------------------------------------------------------+
@@ -621,6 +635,7 @@ bool fn_SendNotification(string myText,bool printLog,bool sendAlert,bool sendPus
    
    return(true);
 }
+*/
 
 //+------------------------------------------------------------------------------------------------------------------------------------+
 //| Following sections define functions related to graphical
@@ -629,18 +644,19 @@ bool fn_SendNotification(string myText,bool printLog,bool sendAlert,bool sendPus
 //+------------------------------------------------------------------+
 //| Function to remove objects
 //+------------------------------------------------------------------+
-bool fn_RemoveObjects(string objName)
+bool fn_RemoveObjects(string objName) export
 {
-   for(int iObj=ObjectsTotal()-1; iObj>=0; iObj--){
-      string oFullName=ObjectName(iObj);
+   for(int iObj=ObjectsTotal(0,0,-1)-1; iObj>=0; iObj--){
+      string oFullName=ObjectName(0,iObj,-1,-1);
       if(StringFind(oFullName,objName)>=0){
-         ObjectDelete(oFullName);
+         ObjectDelete(0,oFullName);
       }
    }
    
    return(true);   
 }
 
+/*
 //+------------------------------------------------------------------+
 //| Function to draw information panel
 //+------------------------------------------------------------------+
@@ -698,21 +714,24 @@ T StringToEnum(string str,T enu)
 //---
    return(-1);
 }
+**/
 
 //+------------------------------------------------------------------+
 //| Function to convert from String to enum
 //+------------------------------------------------------------------+
-double fn_GetEntryPrice(double price, TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType)
+double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType)
 {
-   //Alert("price:",price,"tradeDirection:",EnumToString(tradeDirection));
+   MqlTick currentPrice;
+   SymbolInfoTick(Symbol(),currentPrice);
+   
    if(tradeDirection==LONG && entryType==IMMEDIATE)
-      return Ask;
+      return currentPrice.ask;
    else if(tradeDirection==SHORT && entryType==IMMEDIATE)
-      return Bid;
+      return currentPrice.bid;
    else
-      return price;      
+      return (currentPrice.ask + currentPrice.bid)/2;      
 
 }
 
 
-**/
+
