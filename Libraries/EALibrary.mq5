@@ -5,21 +5,7 @@
 #property copyright "Khoa Nguyen"
 #property version   "2.0"
 
-//+------------------------------------------------------------------+
-//| Enumeration and definitions
-//+------------------------------------------------------------------+
-enum TRADE_DIRECTION {
-   LONG=1,
-   SHORT=-1,
-   HEDGE=0,
-};
-
-enum ENTRY_TYPE
-{
-   IMMEDIATE=0,
-   PENDING_STOP=1,
-   PENDING_LIMIT=2,
-};
+#include  <GTM\GTM_Enumerations.mqh>
 
 //+------------------------------------------------------------------+
 //| Function to set 3 digits or 5 digits depending to Broker
@@ -35,6 +21,20 @@ double fn_SetMyPoint() export
       myPoint=Point()*100;
    }
    return(myPoint);
+}
+
+//+------------------------------------------------------------------+
+//| Function to return an array containing Pip Value | Spreads in pips | Min Stop Loss in pips 
+//+------------------------------------------------------------------+
+double fn_GetPipsSpread() export
+{
+   double value = 0;
+   if(Digits()==3 || Digits()==5){  
+      value  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.1;                            //Broker spread in pips
+   }else if(Digits()==2){
+      value  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.01;                              //Broker spread in pips
+   }
+   return(value);
 }
 
 //+------------------------------------------------------------------+
@@ -116,48 +116,48 @@ string fn_IsConnectedToBroker()
 */
 
 
-
-
-
-
-
-
-
 //+------------------------------------------------------------------+
 //| Function to place immediate order
 //+------------------------------------------------------------------+
 long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
                             ,double orderLotSize
-                            ,double orderSLPrice
-                            ,double orderTPPrice
+                            ,double orderSLPrice                            
+                            ,double orderTPPrice                            
                             ,string orderComment
                             ,int    orderMagicNum
+                            ,double point
                             ) export
 {
-    long ticket = 0;
-    //--- declare and initialize the trade request and result of trade request
-    MqlTradeRequest request={0};
-    MqlTradeResult  result={0};
+   long ticket = -1;
+   double orderTPPips=0, orderSLPips=0;
+   //--- declare and initialize the trade request and result of trade request
+   MqlTradeRequest request={0};
+   MqlTradeResult  result={0};
+   
+   request.magic    =orderMagicNum;                            // MagicNumber of the order
+   request.symbol   =Symbol();                                 // symbol
+   request.volume   =orderLotSize;                             // lot size
+   request.action   =TRADE_ACTION_DEAL;                        // type of trade operation
+   request.type     =orderType;                                // order type
+   request.deviation=5;                                        // allowed deviation from the price
+   request.comment  =orderComment;
+   request.type_filling = ORDER_FILLING_FOK||ORDER_FILLING_IOC||ORDER_FILLING_RETURN;
 
-    request.magic    =orderMagicNum;                            // MagicNumber of the order
-    request.symbol   =Symbol();                                 // symbol
-
-    request.volume   =orderLotSize;                             // lot size
-    request.action   =TRADE_ACTION_DEAL;                        // type of trade operation
-    request.type     =orderType;                                // order type
-    request.deviation=5;                                        // allowed deviation from the price
-    request.comment  =orderComment;
-
-    if (orderType == ORDER_TYPE_BUY)
-    {
-        request.price = SymbolInfoDouble(Symbol(),SYMBOL_ASK);    // price for opening
-
-    }else if(orderType == ORDER_TYPE_SELL)
-    {
-        request.price = SymbolInfoDouble(Symbol(),SYMBOL_BID);    // price for opening
+   if (orderType == ORDER_TYPE_BUY){
+      request.price = SymbolInfoDouble(Symbol(),SYMBOL_ASK);    // price for opening
+      orderComment += "-BUY:" + DoubleToString(orderLotSize,2);
+    }else if(orderType == ORDER_TYPE_SELL){
+        request.price = SymbolInfoDouble(Symbol(),SYMBOL_BID);    // price for opening 
+        orderComment += "-SELL:" + DoubleToString(orderLotSize,2);
     }
     
-    request.tp       =orderTPPrice;                             // set TP price
+    orderTPPips = MathAbs(orderTPPrice-request.price)/point;
+    orderSLPips = MathAbs(orderSLPrice-request.price)/point;
+    orderComment += " lot-Entry:" + DoubleToString(request.price,4) 
+                    + "-TP:" + DoubleToString(orderTPPrice,4) + " or " + DoubleToString(orderTPPips,1) + "pips"                     
+                    + "-SL:" + DoubleToString(orderSLPrice,4) + " or " + DoubleToString(orderSLPips,1) + "pips";
+    
+    if (orderTPPrice != 0) request.tp = orderTPPrice;          // set TP price
     if (orderSLPrice != 0) request.sl = orderSLPrice;           // set SL price if specify
     
     //--- send the request
@@ -217,8 +217,6 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
                 Print("Other answer = ",answer); 
             } 
         }
-        ticket = -1;
-        
     }else
     {
         ticket = result.deal;
@@ -227,6 +225,46 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
     }
     
    return ticket; 
+}
+
+
+//+------------------------------------------------------------------+
+//| Function to convert from String to enum
+//+------------------------------------------------------------------+
+double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType) export
+{
+   MqlTick currentPrice;
+   SymbolInfoTick(Symbol(),currentPrice);
+   
+   if(tradeDirection==LONG && entryType==IMMEDIATE)
+      return currentPrice.ask;
+   else if(tradeDirection==SHORT && entryType==IMMEDIATE)
+      return currentPrice.bid;
+   else
+      return (currentPrice.ask + currentPrice.bid)/2;      
+}
+
+
+//+------------------------------------------------------------------+
+//| Function to check if price has reaching target price level and is tradeable
+//+------------------------------------------------------------------+
+bool fn_IsPending(double targetPrice,double spreadPips,double Points) export
+{
+   bool result=false;
+   MqlTick currentPrice;
+   SymbolInfoTick(Symbol(),currentPrice);
+
+   double curMidPrice = (currentPrice.ask + currentPrice.bid)/2;
+   double spreadPrice = spreadPips * Points / 2;
+   
+   //Print("targetPrice:",targetPrice,"-curMidPrice:",curMidPrice,"-spreadPips:",spreadPips);
+   
+   if(curMidPrice >= targetPrice - spreadPrice && curMidPrice <= targetPrice + spreadPrice
+      && spreadPips >= SymbolInfoInteger(Symbol(),SYMBOL_SPREAD)){
+      result = true;
+   }   
+
+   return result;
 }
 
 
@@ -615,27 +653,27 @@ string fn_RemainingTime()
    
    return remainTime;
 }
-
+*/
 
 
 
 //+------------------------------------------------------------------+
 //| Function to check for server connection
 //+------------------------------------------------------------------+
-bool fn_SendNotification(string myText,bool printLog,bool sendAlert,bool sendPushNotification)
+bool fn_SendNotification(string myText,bool printLog,bool sendAlert,bool sendPushNotification) export
 {   
    if(sendAlert){
-      Alert(myText,"-",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
+      Alert(Symbol(),"-",myText,"-",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
    }
    if(printLog){
       Print(myText,"-",TimeToString(TimeLocal(),TIME_DATE|TIME_MINUTES));
    }
    if(sendPushNotification)
-      SendNotification(myText);
+      SendNotification(Symbol()+"-"+myText);
    
    return(true);
 }
-*/
+
 
 //+------------------------------------------------------------------------------------------------------------------------------------+
 //| Following sections define functions related to graphical
@@ -716,22 +754,7 @@ T StringToEnum(string str,T enu)
 }
 **/
 
-//+------------------------------------------------------------------+
-//| Function to convert from String to enum
-//+------------------------------------------------------------------+
-double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType)
-{
-   MqlTick currentPrice;
-   SymbolInfoTick(Symbol(),currentPrice);
-   
-   if(tradeDirection==LONG && entryType==IMMEDIATE)
-      return currentPrice.ask;
-   else if(tradeDirection==SHORT && entryType==IMMEDIATE)
-      return currentPrice.bid;
-   else
-      return (currentPrice.ask + currentPrice.bid)/2;      
 
-}
 
 
 

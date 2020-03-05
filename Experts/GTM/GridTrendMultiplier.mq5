@@ -20,7 +20,7 @@ CProgram program;
 //+------------------------------------------------------------------+
 //| External variables
 //+------------------------------------------------------------------+
-extern EA_MODE1 eaMode = 1;                       //Running Test Mode
+extern EA_MODE1 eaMode = TEST;                       //Running Test Mode
 
 //--- Configurations
 
@@ -37,7 +37,7 @@ int OnInit()
   program.OnInitEvent();
 
   //--- Set up the trading panel
-  if(!program.CreateExpertPanel("Grid Trend Multiplier v2.0",1)){
+  if(!program.CreateExpertPanel("Grid Trend Multiplier v2.0",eaMode)){
     Print(__FUNCTION__," > Failed to create graphical interface!");
     return(INIT_FAILED);
   }
