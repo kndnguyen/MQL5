@@ -10,17 +10,13 @@
 
 #include "GTM_Program.mqh"
 
-enum EA_MODE1 {
-   NORMAL=1,
-   TEST=-1
-};
 //--- Create GUI class
 CProgram program;
 
 //+------------------------------------------------------------------+
 //| External variables
 //+------------------------------------------------------------------+
-extern EA_MODE1 eaMode = TEST;                       //Running Test Mode
+extern bool isTestMode = true;                       //Running Test Mode
 
 //--- Configurations
 
@@ -37,7 +33,7 @@ int OnInit()
   program.OnInitEvent();
 
   //--- Set up the trading panel
-  if(!program.CreateExpertPanel("Grid Trend Multiplier v2.0",eaMode)){
+  if(!program.CreateExpertPanel("Grid Trend Multiplier v2.0",isTestMode)){
     Print(__FUNCTION__," > Failed to create graphical interface!");
     return(INIT_FAILED);
   }

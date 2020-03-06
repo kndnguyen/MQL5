@@ -248,16 +248,26 @@ double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType) ex
 //+------------------------------------------------------------------+
 //| Function to check if price has reaching target price level and is tradeable
 //+------------------------------------------------------------------+
-bool fn_IsPending(double targetPrice,double spreadPips,double Points) export
+bool fn_IsPending(TRADE_DIRECTION direction, double targetPrice,double spreadPips,double Points) export
 {
    bool result=false;
    MqlTick currentPrice;
    SymbolInfoTick(Symbol(),currentPrice);
 
    double curMidPrice = (currentPrice.ask + currentPrice.bid)/2;
-   double spreadPrice = spreadPips * Points / 2;
+   double spreadPrice = 0.5 * Points;
    
-   //Print("targetPrice:",targetPrice,"-curMidPrice:",curMidPrice,"-spreadPips:",spreadPips);
+   switch(direction)
+   {
+      case  LONG:
+         curMidPrice = currentPrice.ask;
+         break;
+      case  SHORT:
+         curMidPrice = currentPrice.bid;
+         break;
+      default:
+         break;
+   }
    
    if(curMidPrice >= targetPrice - spreadPrice && curMidPrice <= targetPrice + spreadPrice
       && spreadPips >= SymbolInfoInteger(Symbol(),SYMBOL_SPREAD)){
@@ -333,19 +343,7 @@ int fn_GetOpenOrders(int magicNumber)
    return result;
 }
 
-//+------------------------------------------------------------------+
-//| Function to check if order is still opened
-//+------------------------------------------------------------------+
-bool fn_IsOrderOpened(int ticketNumber,int magicNumber)
-{
-   bool result=false;
-   
-   if(ticketNumber!=0 && OrderSelect(ticketNumber,SELECT_BY_TICKET))
-      if((long)OrderCloseTime()==0 && OrderMagicNumber()==magicNumber && OrderSymbol()==Symbol())
-         result=true;
 
-   return result;
-}
 
 //+------------------------------------------------------------------+
 //| Function to check if price is reaching target level in same direction
