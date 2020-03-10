@@ -6,6 +6,10 @@
 #property copyright "Khoa Nguyen"
 #property link      ""
 
+#define Spread SymbolInfoInteger(Symbol(),SYMBOL_SPREAD)
+#define Bid SymbolInfoDouble(Symbol(),SYMBOL_BID)
+#define Ask SymbolInfoDouble(Symbol(),SYMBOL_ASK)
+
 //+------------------------------------------------------------------+
 //| Enumerations
 //+------------------------------------------------------------------+

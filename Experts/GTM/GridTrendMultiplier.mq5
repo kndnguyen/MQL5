@@ -16,7 +16,7 @@ CProgram program;
 //+------------------------------------------------------------------+
 //| External variables
 //+------------------------------------------------------------------+
-extern bool isTestMode = true;                       //Running Test Mode
+extern bool isTestMode = false;                       //Running Test Mode
 
 //--- Configurations
 

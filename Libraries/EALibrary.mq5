@@ -30,9 +30,9 @@ double fn_GetPipsSpread() export
 {
    double value = 0;
    if(Digits()==3 || Digits()==5){  
-      value  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.1;                            //Broker spread in pips
+      value  = Spread*0.1;                            //Broker spread in pips
    }else if(Digits()==2){
-      value  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.01;                              //Broker spread in pips
+      value  = Spread*0.01;                              //Broker spread in pips
    }
    return(value);
 }
@@ -44,10 +44,10 @@ bool fn_GetMarketInfo(double &marketInfo[],double lotSize) export
 {
    if(Digits()==3 || Digits()==5){
       marketInfo[0]  = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE)*0.1*(lotSize/0.01);    //Pip value: Value of a pip based on standard 0.01 lotSize      
-      marketInfo[1]  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.1;                            //Broker spread in pips
+      marketInfo[1]  = Spread*0.1;                            //Broker spread in pips
    }else if(Digits()==2){
       marketInfo[0]  = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_VALUE)*0.01*(lotSize/0.01);            //Pip value: Value of a pip based on standard 0.01 lotSize      
-      marketInfo[1]  = SymbolInfoInteger(_Symbol,SYMBOL_SPREAD)*0.01;                              //Broker spread in pips
+      marketInfo[1]  = Spread*0.01;                              //Broker spread in pips
    }
    return(true);
 }
@@ -140,31 +140,24 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
    request.action   =TRADE_ACTION_DEAL;                        // type of trade operation
    request.type     =orderType;                                // order type
    request.deviation=5;                                        // allowed deviation from the price
-   request.comment  =orderComment;
    request.type_filling = ORDER_FILLING_FOK||ORDER_FILLING_IOC||ORDER_FILLING_RETURN;
 
    if (orderType == ORDER_TYPE_BUY){
-      request.price = SymbolInfoDouble(Symbol(),SYMBOL_ASK);    // price for opening
-      orderComment += "-BUY:" + DoubleToString(orderLotSize,2);
-    }else if(orderType == ORDER_TYPE_SELL){
-        request.price = SymbolInfoDouble(Symbol(),SYMBOL_BID);    // price for opening 
-        orderComment += "-SELL:" + DoubleToString(orderLotSize,2);
-    }
+      request.price = Ask;    // price for opening
+   }else if(orderType == ORDER_TYPE_SELL){
+      request.price = Bid;    // price for opening 
+   }
+      
+   request.comment  =orderComment;
     
-    orderTPPips = MathAbs(orderTPPrice-request.price)/point;
-    orderSLPips = MathAbs(orderSLPrice-request.price)/point;
-    orderComment += " lot-Entry:" + DoubleToString(request.price,4) 
-                    + "-TP:" + DoubleToString(orderTPPrice,4) + " or " + DoubleToString(orderTPPips,1) + "pips"                     
-                    + "-SL:" + DoubleToString(orderSLPrice,4) + " or " + DoubleToString(orderSLPips,1) + "pips";
+   if (orderTPPrice != 0) request.tp = orderTPPrice;          // set TP price
+   if (orderSLPrice != 0) request.sl = orderSLPrice;           // set SL price if specify
     
-    if (orderTPPrice != 0) request.tp = orderTPPrice;          // set TP price
-    if (orderSLPrice != 0) request.sl = orderSLPrice;           // set SL price if specify
-    
-    //--- send the request
-    bool orderSendResult = OrderSend(request,result);
-    int answer=result.retcode;
-    if(!orderSendResult)
-    {
+   //--- send the request
+   bool orderSendResult = OrderSend(request,result);
+   int answer=result.retcode;
+   if(!orderSendResult)
+   {
         PrintFormat("OrderSend error %d",GetLastError());     // if unable to send the request, output the error code
         switch(answer) 
         { 
@@ -217,12 +210,11 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
                 Print("Other answer = ",answer); 
             } 
         }
-    }else
-    {
-        ticket = result.deal;
+   }else{
+        ticket = result.order;
         //--- information about the operation
-        PrintFormat(_Symbol,":",orderComment," Order #",ticket," opened at price:",DoubleToString(result.price,4),"-LotSize:",DoubleToString(result.volume,2),"-TP:",DoubleToString(orderTPPrice,4),"-SL:",DoubleToString(orderSLPrice,4));
-    }
+        Print(Symbol(),":",orderComment," Order #",ticket," opened at price:",DoubleToString(result.price,4),"-LotSize:",DoubleToString(result.volume,2),"-TP:",DoubleToString(orderTPPrice,4),"-SL:",DoubleToString(orderSLPrice,4));
+   }
     
    return ticket; 
 }
@@ -232,16 +224,13 @@ long fn_PlaceImmediateOrder(ENUM_ORDER_TYPE orderType
 //| Function to convert from String to enum
 //+------------------------------------------------------------------+
 double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType) export
-{
-   MqlTick currentPrice;
-   SymbolInfoTick(Symbol(),currentPrice);
-   
+{   
    if(tradeDirection==LONG && entryType==IMMEDIATE)
-      return currentPrice.ask;
+      return Ask;
    else if(tradeDirection==SHORT && entryType==IMMEDIATE)
-      return currentPrice.bid;
+      return Bid;
    else
-      return (currentPrice.ask + currentPrice.bid)/2;      
+      return (Ask+Bid)/2;      
 }
 
 
@@ -251,60 +240,100 @@ double fn_GetEntryPrice(TRADE_DIRECTION tradeDirection, ENTRY_TYPE entryType) ex
 bool fn_IsPending(TRADE_DIRECTION direction, double targetPrice,double spreadPips,double Points) export
 {
    bool result=false;
-   MqlTick currentPrice;
-   SymbolInfoTick(Symbol(),currentPrice);
-
-   double curMidPrice = (currentPrice.ask + currentPrice.bid)/2;
-   double spreadPrice = 0.5 * Points;
+   
+   double curMidPrice = (Ask + Bid)/2;
+   double spreadPrice = spreadPips * Points / 10; //--- Price is within 50% of spread
    
    switch(direction)
    {
       case  LONG:
-         curMidPrice = currentPrice.ask;
+         curMidPrice = Ask;
+         if(curMidPrice >= targetPrice && curMidPrice <= targetPrice + spreadPrice
+            && spreadPips >= fn_GetPipsSpread()){
+            result = true;
+         }         
          break;
       case  SHORT:
-         curMidPrice = currentPrice.bid;
+         curMidPrice = Bid;
+         if(curMidPrice <= targetPrice && curMidPrice >= targetPrice - spreadPrice
+            && spreadPips >= fn_GetPipsSpread()){
+            result = true;
+         }         
+         break;
+      case  HEDGE:
+         if(curMidPrice >= targetPrice - spreadPrice && curMidPrice <= targetPrice + spreadPrice
+            && spreadPips >= fn_GetPipsSpread()){
+            result = true;
+         }
          break;
       default:
          break;
    }
    
-   if(curMidPrice >= targetPrice - spreadPrice && curMidPrice <= targetPrice + spreadPrice
-      && spreadPips >= SymbolInfoInteger(Symbol(),SYMBOL_SPREAD)){
-      result = true;
-   }   
-
    return result;
 }
 
 
-/*
 //+------------------------------------------------------------------+
-//| Function to return Total running profit/loss in pips
+//| Function to return count of open deals and reset closed deals ticket number to 0
 //+------------------------------------------------------------------+
-int fn_GetRunningPL(int magicNumber,double myPoint,double &result[])
+bool fn_GetOpenOrders(GridItem &GridArray[],double &longTicketsCnt,double &shortTicketCnt,int magicNumber) export
 {
-   double totPips=0;
-   double totAmt=0;
+   bool result=false,longResult=false,shortResult=true;
+   longTicketsCnt=0;
+   shortTicketCnt=0;
+   
+   for(int i=0;i < ArrayRange(GridArray,0);i++) {
+      if(GridArray[i].item_BUYTicket != 0){
+         if(PositionSelectByTicket(GridArray[i].item_BUYTicket)){
+            if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY){
+               longTicketsCnt++;
+            }   
+         }else{
+            GridArray[i].item_BUYTicket = 0;
+         }
+         longResult = true;
+      }
+      
+      if(GridArray[i].item_SELLTicket != 0){
+         if(PositionSelectByTicket(GridArray[i].item_SELLTicket)){
+            if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL){            
+               shortTicketCnt++;
+            }   
+         }else{
+            GridArray[i].item_SELLTicket = 0;
+         }
+         shortResult = true;
+      }
+   }
 
-   for(int i=0;i < OrdersTotal();i++) {
-      if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)){
-         if(fn_IsOrderOpened(OrderTicket(),magicNumber)==true){
-            if(OrderType()==OP_BUY){
-               totPips += (Bid - OrderOpenPrice())/myPoint;
-            }else
-            if(OrderType()==OP_SELL){
-               totPips += (OrderOpenPrice()-Ask)/myPoint;         
-            }        
+   return result = longResult & shortResult;
+}
+
+//+------------------------------------------------------------------+
+//| Function to return Total running balance profit/loss
+//+------------------------------------------------------------------+
+bool fn_GetRunningPL(double &runningLongPL,double &runningShortPL,int magicNumber) export
+{
+   runningLongPL=0;
+   runningShortPL=0;
+
+   for(int i=0;i<PositionsTotal();i++) {
+      if(PositionGetSymbol(i)==Symbol()){
+         if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY){
+               runningLongPL += PositionGetDouble(POSITION_PROFIT);
+         }
+         
+         if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL){
+               runningShortPL += PositionGetDouble(POSITION_PROFIT);
          }
       }
    }
-   //some comment
-   result = totPips;
 
-   return result;
+   return (true);
 }
-*/
+
+
 
 /**
 //+------------------------------------------------------------------+
@@ -327,21 +356,6 @@ int fn_GetOrderProfitLossPip(int ticket,double myPoint)
    return result;
 }
 
-//+------------------------------------------------------------------+
-//| Function to return count of open orders
-//+------------------------------------------------------------------+
-int fn_GetOpenOrders(int magicNumber)
-{
-   int result=0;
-
-   for(int i=0;i < OrdersTotal();i++) {
-      if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES))
-         if(fn_IsOrderOpened(OrderTicket(),magicNumber)==true)
-            result++;
-   }
-
-   return result;
-}
 
 
 
