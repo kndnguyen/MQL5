@@ -80,6 +80,7 @@ struct GridParameters
    int               grid_ResetLevel;
    int               grid_ScaleFactor;
    int               grid_ScaleStartLevel;
+   int               grid_ScaleMode;
    
    //--- To be displayed parameters
    int               grid_CurLongLevel;

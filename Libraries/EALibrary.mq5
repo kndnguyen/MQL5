@@ -311,6 +311,38 @@ bool fn_GetOpenOrders(GridItem &GridArray[],double &longTicketsCnt,double &short
 }
 
 //+------------------------------------------------------------------+
+//| Function to return
+//|   Index of Latest Long order
+//|   Index of Latest Short order
+//+------------------------------------------------------------------+
+bool fn_GetLatestOrderLevel(GridItem &GridArray[],int &longTicketIndex,int &shortTicketIndex,int magicNumber) export
+{
+   bool result=false,longResult=false,shortResult=true;
+   longTicketIndex=0;
+   shortTicketIndex=0;
+   
+   for(int i=0;i<ArrayRange(GridArray,0);i++) {
+      if(GridArray[i].item_BUYTicket != 0){
+         if(PositionSelectByTicket(GridArray[i].item_BUYTicket))
+            if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+               longTicketIndex = i;
+               
+         longResult = true;
+      }
+      
+      if(GridArray[i].item_SELLTicket != 0){
+         if(PositionSelectByTicket(GridArray[i].item_SELLTicket))
+            if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)     
+               shortTicketIndex = i;
+               
+         shortResult = true;
+      }
+   }
+
+   return result = longResult & shortResult;
+}
+
+//+------------------------------------------------------------------+
 //| Function to return Total running balance profit/loss
 //+------------------------------------------------------------------+
 bool fn_GetRunningPL(double &runningLongPL,double &runningShortPL,int magicNumber) export
@@ -333,74 +365,59 @@ bool fn_GetRunningPL(double &runningLongPL,double &runningShortPL,int magicNumbe
    return (true);
 }
 
-
-
-/**
 //+------------------------------------------------------------------+
-//| Function to return individual order prefit/loss in pips
+//| Function to return order accummulate prefit/loss in pips
 //+------------------------------------------------------------------+
-int fn_GetOrderProfitLossPip(int ticket,double myPoint)
+bool fn_GetAccumulatePL(double &accumLongPL,double &accumShortPL,int magicNumber) export
 {
-   int result=0;
-   double totPips=0;
+   accumLongPL = 0;
+   accumShortPL = 0;
    
-   if(OrderSelect(ticket,SELECT_BY_TICKET,MODE_TRADES)){
-      if(OrderType()==OP_BUY && OrderCloseTime()!=0){
-         totPips = totPips + (OrderClosePrice() - OrderOpenPrice())/myPoint;
-      }else
-      if(OrderType()==OP_SELL && OrderCloseTime()!=0){
-         totPips = totPips + (OrderOpenPrice()-OrderClosePrice())/myPoint;         
-      }        
-   }
-   result=totPips;
-   return result;
+   //--- Determine the time intervals of the required trading history
+   //--- Current server time
+   datetime endDate=TimeCurrent(); 
+   //--- Set the beginning time to 1 year ago                
+   datetime startDate=endDate-365*PeriodSeconds(PERIOD_D1);
+   
+   //--- Request in the cache of the program the needed interval of the trading history
+   HistorySelect(startDate,endDate);
+   //--- Obtain the number of deals in the history
+   int dealsList=HistoryDealsTotal();
+      
+   //--- Scan through all of the deals in the history
+   for(int i=0;i<dealsList;i++) {
+      //--- Obtain the ticket of the deals by its index in the list
+      ulong deal_ticket=HistoryDealGetTicket(i);
+      
+      if(deal_ticket>0) { // obtain into the cache the deal, and work with it      
+         string orderSymbol   = HistoryDealGetString(deal_ticket,DEAL_SYMBOL);
+         ulong orderType      = HistoryDealGetInteger(deal_ticket,DEAL_TYPE);
+         long orderMagic      = (HistoryDealGetInteger(deal_ticket,DEAL_MAGIC) == 0) ? HistoryOrderGetInteger(HistoryDealGetInteger(deal_ticket,DEAL_POSITION_ID),ORDER_MAGIC) : HistoryDealGetInteger(deal_ticket,DEAL_MAGIC);       
+         ENUM_DEAL_ENTRY orderEntryType =(ENUM_DEAL_ENTRY)HistoryDealGetInteger(deal_ticket,DEAL_ENTRY);
+
+         //--- Check current trading symbol and magic number
+         if(orderMagic == magicNumber && orderSymbol == Symbol()){
+            //--- Make sure this is closed deal
+            if(orderEntryType==DEAL_ENTRY_OUT){
+               if(orderType == DEAL_TYPE_BUY){
+                  accumShortPL += HistoryDealGetDouble(deal_ticket,DEAL_PROFIT);
+               }else if(orderType == DEAL_TYPE_SELL) {
+                  accumLongPL += HistoryDealGetDouble(deal_ticket,DEAL_PROFIT);
+               }
+            }
+         }
+      //--- Unsuccessful attempt to obtain a deal
+      }else{ 
+         Print("We couldn't select a deal, with the index %d. Error %d",i,GetLastError());
+      }
+   }//--- End for loop
+   return (true);
 }
 
 
 
 
-//+------------------------------------------------------------------+
-//| Function to check if price is reaching target level in same direction
-//+------------------------------------------------------------------+
-int fn_IsPendingStop(double priceLevel,int direction)
-{
-   int result=NO_ORDER;
-
-   if(direction==LONG){
-      if(Low[1]<priceLevel && Ask >= priceLevel)
-         result=BUY_ORDER;
-      //Print("Pending BUY Stop triggerred at price: ",DoubleToString(priceLevel,4));
-   }else
-   if(direction==SHORT){
-      if(High[1]>priceLevel && Bid <= priceLevel)
-         result=SELL_ORDER;
-      //Print("Pending SELL Stop triggerred at price: ",DoubleToString(priceLevel,4));
-   }
-
-   return result;
-}
-
-//+------------------------------------------------------------------+
-//| Function to check if price is reaching target level in opposite direction
-//+------------------------------------------------------------------+
-int fn_IsPendingLimit(double priceLevel,int direction)
-{
-   int result=NO_ORDER;
-
-   if(direction==LONG){
-      if(High[1]>priceLevel && Ask <= priceLevel)
-         result=BUY_ORDER;
-      //Print("Pending BUY Limit triggerred at price: ",DoubleToString(priceLevel,4));
-   }else
-   if(direction==SHORT){
-      if(Low[1]<priceLevel && Bid >= priceLevel)
-         result=SELL_ORDER;
-      //Print("Pending SELL Limit triggerred at price: ",DoubleToString(priceLevel,4));
-   }
-
-   return result;
-}
-
+/*
 //+------------------------------------------------------------------+
 //| Function to close all order
 //+------------------------------------------------------------------+

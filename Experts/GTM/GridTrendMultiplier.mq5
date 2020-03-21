@@ -16,7 +16,7 @@ CProgram program;
 //+------------------------------------------------------------------+
 //| External variables
 //+------------------------------------------------------------------+
-extern bool isTestMode = false;                       //Running Test Mode
+input bool isTestMode = false;                       //Running Test Mode
 
 //--- Configurations
 
@@ -76,7 +76,7 @@ void OnTimer()
 void OnTrade()
 {
 //---
-   
+   program.OnTradeEvent();
 }
 
 //+------------------------------------------------------------------+
