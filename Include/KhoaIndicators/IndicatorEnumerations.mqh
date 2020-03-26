@@ -6,6 +6,10 @@
 #property copyright "Khoa Nguyen"
 #property link      "https://www.mql5.com"
 
+#import "IndicatorLibrary.ex5"
+double fn_SetMyPoint();
+#import
+
 //+------------------------------------------------------------------+
 //| defines                                                          |
 //+------------------------------------------------------------------+
@@ -20,6 +24,7 @@
 #define Close(shift)    iClose(NULL,PERIOD_CURRENT,shift) 
 #define Volume(shift)   iVolume(Symbol(),0,shift)
 
+#define myPoint   fn_SetMyPoint();
 //+------------------------------------------------------------------+
 //| Enumerations
 //+------------------------------------------------------------------+

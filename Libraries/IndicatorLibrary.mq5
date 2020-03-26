@@ -15,15 +15,15 @@
 //+------------------------------------------------------------------+
 double fn_SetMyPoint() export
 {
-   double myPoint=Point();
+   double point=Point();
    if(Digits()==3 || Digits()==5){
       Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 10");
-      myPoint=Point()*10;
+      point=Point()*10;
    }else if(Digits()==2){
       Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 100");
-      myPoint=Point()*100;
+      point=Point()*100;
    }
-   return(myPoint);
+   return(point);
 }
 
 //+------------------------------------------------------------------+
@@ -37,6 +37,23 @@ bool fn_IsNewCandle() export
       
     BarsOnChart = Bars(_Symbol,_Period);
         return(true);
+}
+
+//+------------------------------------------------------------------+
+//| Function to fill fractal buffer
+//+------------------------------------------------------------------+
+bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]) export
+{
+   double highValue, lowValue;
+   if(fn_Fractal(fractalRange,PERIOD_CURRENT,currentBar,highValue,lowValue)){
+      fractalH[currentBar] = highValue;
+      fractalL[currentBar] = lowValue;
+   }else{
+      fractalH[currentBar] = 0;
+      fractalL[currentBar] = 0;
+   }
+   
+   return(true);
 }
 
 //+------------------------------------------------------------------+

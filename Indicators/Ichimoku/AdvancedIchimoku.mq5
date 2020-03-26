@@ -5,16 +5,18 @@
 //+------------------------------------------------------------------+
 #property copyright "Khoa Nguyen"
 #property link      "https://www.mql5.com"
-#property version   "1.00"
+#property version   "2.00"
+#property description   "/nv2.00: Implement in MQL5"
+
 #property strict
 
 #include  <KhoaIndicators\IndicatorEnumerations.mqh>
 
 #import "IndicatorLibrary.ex5"
-double fn_SetMyPoint();
 bool fn_RemoveObjects(string objName);
 void fn_DisplaySymbol(string objName, int arrowCode, int index, double priceLevel, color symbolColor);
 void fn_MoveSymbol(string objName, int index, double priceLevel);
+bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentBar, double &highestValue, double &lowestValue);
 void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRay);
 void fn_DisplayText(string objName, datetime time, double priceLevel,ENUM_ANCHOR_POINT anchor,double angle, int fontSize, string fontName,color fontColor, string content);
@@ -59,7 +61,6 @@ double LowFractal_Buffer[];
 //+------------------------------------------------------------------+
 //| Indicator Variables
 //+------------------------------------------------------------------+
-double   myPoint=0;
 int      ExtBegin=0;          //To define a bar to perform calculation from
 int      NumberOfBars=0;      //Number of bars
 int      checkBarsCalc=0;
@@ -174,7 +175,7 @@ int OnCalculate(const int rates_total,
    ExtBegin = InpKijun+1;   
    //--- Detect signals 
    for(int i=1; i<rates_total-ExtBegin; i++) {
-      FillFractalBuffers(i);
+      fn_FillFractalBuffers(i,FractalRange,HighFractal_Buffer,LowFractal_Buffer);
       KumoBreakout(i, time, open, close, high, low);
    }
 
@@ -258,7 +259,7 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=high[i];
+         KumoBreak_Buffer[i]=high[i]+Spread*2*myPoint;
       }
    }
    
@@ -280,7 +281,7 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=low[i];
+         KumoBreak_Buffer[i]=low[i]-Spread*2*myPoint;
       } 
    }
 
@@ -289,21 +290,6 @@ int position = InpKijun;
       kumoBreak=false;
    }   
   
-}
-
-//+------------------------------------------------------------------+
-//| Function to fill fractal buffer
-//+------------------------------------------------------------------+
-void FillFractalBuffers(const int currentBar)
-{
-   double highValue, lowValue;
-   if(fn_Fractal(FractalRange,PERIOD_CURRENT,currentBar,highValue,lowValue)){
-      HighFractal_Buffer[currentBar] = highValue;
-      LowFractal_Buffer[currentBar] = lowValue;
-   }else{
-      HighFractal_Buffer[currentBar] = 0;
-      LowFractal_Buffer[currentBar] = 0;
-   }
 }
 
 //+------------------------------------------------------------------+
@@ -420,7 +406,6 @@ bool SetIndicatorProperties(void) {
    int i;
    ENUM_DRAW_TYPE draw_type;
    
-   myPoint = fn_SetMyPoint();
    //--- Set Indicator Name
    IndicatorSetString(INDICATOR_SHORTNAME, "Ichimoku Kinko Hyo");
    //--- Set a number of decimal places

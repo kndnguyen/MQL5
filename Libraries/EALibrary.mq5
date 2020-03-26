@@ -329,15 +329,19 @@ bool fn_GetLatestOrderLevel(GridItem &GridArray[],int &longTicketIndex,int &shor
                
          longResult = true;
       }
-      
-      if(GridArray[i].item_SELLTicket != 0){
-         if(PositionSelectByTicket(GridArray[i].item_SELLTicket))
+   }
+
+   for(int j=ArrayRange(GridArray,0)-1;j>=0;j--) {
+      if(GridArray[j].item_SELLTicket != 0){
+         if(PositionSelectByTicket(GridArray[j].item_SELLTicket))
             if(PositionGetInteger(POSITION_MAGIC) == magicNumber && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)     
-               shortTicketIndex = i;
+               shortTicketIndex = j;
                
          shortResult = true;
-      }
-   }
+      } 
+   }  
+      
+   
 
    return result = longResult & shortResult;
 }
