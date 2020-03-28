@@ -455,7 +455,7 @@ bool fn_SendNotification(string myText,bool printLog,bool sendAlert,bool sendPus
 //+------------------------------------------------------------------+
 bool fn_RemoveObjects(string objName) export
 {
-   for(int iObj=ObjectsTotal(0,0,-1)-1; iObj>=0; iObj--){
+   for(int iObj=ObjectsTotal(0,-1,-1)-1; iObj>=0; iObj--){
       string oFullName=ObjectName(0,iObj,-1,-1);
       if(StringFind(oFullName,objName)>=0){
          ObjectDelete(0,oFullName);
@@ -468,14 +468,15 @@ bool fn_RemoveObjects(string objName) export
 //+------------------------------------------------------------------+
 //| Function to draw trendline
 //+------------------------------------------------------------------+
-void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRay) export
+void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRayRight,bool objRayLeft) export
 {
    //Print("objName:",objName,"-objTime1:",objTime1,"-objTime2:",objTime2);
    ObjectCreate(0,objName,OBJ_TREND,objWindow,objTime1,objPrice1,objTime2,objPrice2);
    ObjectSetInteger(0,objName,OBJPROP_COLOR,objColor);
    ObjectSetInteger(0,objName,OBJPROP_WIDTH,objWidth);
    ObjectSetInteger(0,objName,OBJPROP_STYLE,objStyle);
-   ObjectSetInteger(0,objName,OBJPROP_RAY,objRay);
+   ObjectSetInteger(0,objName,OBJPROP_RAY_RIGHT,objRayRight);
+   ObjectSetInteger(0,objName,OBJPROP_RAY_LEFT,objRayLeft);   
    ObjectSetInteger(0,objName,OBJPROP_SELECTABLE,false);
    //ObjectSetInteger(0,objName,OBJPROP_HIDDEN,false);
    return;

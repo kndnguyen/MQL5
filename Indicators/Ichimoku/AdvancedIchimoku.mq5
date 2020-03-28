@@ -18,7 +18,7 @@ void fn_DisplaySymbol(string objName, int arrowCode, int index, double priceLeve
 void fn_MoveSymbol(string objName, int index, double priceLevel);
 bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentBar, double &highestValue, double &lowestValue);
-void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRay);
+void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRayRight,bool objRayLeft);
 void fn_DisplayText(string objName, datetime time, double priceLevel,ENUM_ANCHOR_POINT anchor,double angle, int fontSize, string fontName,color fontColor, string content);
 
 #import
@@ -312,12 +312,12 @@ double   hanneTopPrice, hanneBottomPrice;
    hanneTopPrice = NormalizeDouble(high[hanneTopBar],Digits());
    
    objName = "ICHILine_" + lineName + "_Top";
-   fn_DrawTrendLine(objName,0,time[InpPeriod],time[0],hanneTopPrice,hanneTopPrice,lineColor,1,STYLE_DOT,false);
+   fn_DrawTrendLine(objName,0,time[InpPeriod],time[0],hanneTopPrice,hanneTopPrice,lineColor,1,STYLE_DOT,false,false);
    
    hanneBottomBar = iLowest(NULL,0,MODE_LOW,InpPeriod,0);
    hanneBottomPrice = low[hanneBottomBar];
    objName = "ICHILine_" + lineName + "_Bottom";
-   fn_DrawTrendLine(objName,0,time[InpPeriod],time[0],hanneBottomPrice,hanneBottomPrice,lineColor,1,STYLE_DOT,false);
+   fn_DrawTrendLine(objName,0,time[InpPeriod],time[0],hanneBottomPrice,hanneBottomPrice,lineColor,1,STYLE_DOT,false,false);
    
    topBarsCountDown = InpPeriod - hanneTopBar;
    bottomBarsCountDown = InpPeriod - hanneBottomBar;
