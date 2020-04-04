@@ -16,6 +16,7 @@
 bool fn_RemoveObjects(string objName);
 void fn_DisplaySymbol(string objName, int arrowCode, int index, double priceLevel, color symbolColor);
 void fn_MoveSymbol(string objName, int index, double priceLevel);
+double fn_ATR(int currentBar);
 bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentBar, double &highestValue, double &lowestValue);
 void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRayRight,bool objRayLeft);
@@ -176,7 +177,7 @@ int OnCalculate(const int rates_total,
    //--- Detect signals 
    for(int i=1; i<rates_total-ExtBegin; i++) {
       fn_FillFractalBuffers(i,FractalRange,HighFractal_Buffer,LowFractal_Buffer);
-      KumoBreakout(i, time, open, close, high, low);
+      KumoBreakout(i, time, open, close, high, low, spread);
    }
 
 //--- return value of prev_calculated for next call
@@ -213,7 +214,8 @@ void KumoBreakout(const int i,
                   const double &open[],
                   const double &close[],
                   const double &high[],
-                  const double &low[]
+                  const double &low[],
+                  const int &spread[]
                   )
 {
 string ObjName;
@@ -259,7 +261,7 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=high[i]+Spread*2*myPoint;
+         KumoBreak_Buffer[i]=high[i]+fn_ATR(i)*10*myPoint;
       }
    }
    
@@ -281,7 +283,7 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=low[i]-Spread*2*myPoint;
+         KumoBreak_Buffer[i]=low[i]-fn_ATR(i)*10*myPoint;
       } 
    }
 

@@ -17,10 +17,10 @@ double fn_SetMyPoint() export
 {
    double point=Point();
    if(Digits()==3 || Digits()==5){
-      Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 10");
+      //Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 10");
       point=Point()*10;
    }else if(Digits()==2){
-      Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 100");
+      //Print("---> Info: Digits=",Digits(),". Broker quotes given in " + Digits() + "-digits mode. Old values of SL, TP and slippage will be multiplied by 100");
       point=Point()*100;
    }
    return(point);
@@ -86,6 +86,24 @@ bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentB
 
    return(true);   
 }
+
+//+------------------------------------------------------------------+
+//| Function to return ATR value
+//+------------------------------------------------------------------+
+double fn_ATR(int currentBar) export
+{
+   double value = 0;
+   double myArray[100];
+   int handle=iATR(NULL,0,14); 
+   if(handle!=INVALID_HANDLE){
+      CopyBuffer(handle,0,currentBar,100,myArray);
+      value = myArray[0];
+   }
+   return(true);   
+}
+
+
+
 
 //+------------------------------------------------------------------+
 //| Functions to detect Reversal bar
@@ -422,10 +440,10 @@ void fn_ShowCounter(int LoacalToServerTime) export
    datetime serverTime  = TimeLocal() + LoacalToServerTime;
    string myText =  TimeToString(Time(0) + PeriodSeconds() - serverTime, TIME_SECONDS);
 
-   
-   ChartTimePriceToXY(0,0,Time(0)+PeriodSeconds(PERIOD_CURRENT),Ask,iX,iY);
-
-   fn_DisplayLabel(myLabel,myText,iX,ChartGetInteger(0,CHART_HEIGHT_IN_PIXELS,0)-iY,fontSize,myFont,myColor,2);
+   ChartTimePriceToXY(0,0,Time(0)+PeriodSeconds(),Ask,iX,iY);
+   iX = ChartGetInteger(0,CHART_WIDTH_IN_PIXELS,0)-iX;
+   iY = ChartGetInteger(0,CHART_HEIGHT_IN_PIXELS,0)-iY;
+   fn_DisplayLabel(myLabel,myText,iX,iY,fontSize,myFont,myColor,2);
 }
 
 //+------------------------------------------------------------------+
@@ -491,8 +509,9 @@ void fn_DrawRectangle(string objName,datetime objTime1,datetime objTime2,double 
    ObjectSetInteger(0,objName,OBJPROP_COLOR,objColor);
    ObjectSetInteger(0,objName,OBJPROP_WIDTH,objWidth);
    ObjectSetInteger(0,objName,OBJPROP_STYLE,objStyle);
-   ObjectSetInteger(0,objName,OBJPROP_BACK,objBackground); 
+   ObjectSetInteger(0,objName,OBJPROP_FILL,objBackground); 
    ObjectSetInteger(0,objName,OBJPROP_SELECTABLE,false);
+   ObjectSetInteger(0,objName,OBJPROP_BACK,true); 
    return;
 }
 
