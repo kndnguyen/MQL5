@@ -37,7 +37,6 @@ input int oscPeriod=4;                                   //RSI Period
 input ENUM_APPLIED_PRICE oscAppliedPrice=PRICE_MEDIAN;   //RSI Applied Price
 input int OSC_LVL=20;                                    //RSI Level - Between 5-95
 input int FractalRange=4;                                //Fractal range
-input bool ShowFractal=false;                            //Display Fractals
 
 input string lb2="";                                    //=====Violation and Divergence Parameters
 input int lookBackSteps=5;                             //Number of Min/Max point to check for Violation/Divergence
@@ -91,7 +90,6 @@ int OnInit()
 {
    //--- indicator buffers mapping
    fn_RemoveObjects("RSIV_");
-   //fn_RemoveObjects("RSIV_Counter");
    
    SetIndicatorProperties();
    
@@ -102,7 +100,6 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    fn_RemoveObjects("RSIV_");
-   //fn_RemoveObjects("RSIV_Counter");
    if(IndicatorHandle!=INVALID_HANDLE) 
       IndicatorRelease(IndicatorHandle); 
    return;
@@ -226,6 +223,7 @@ void TrendLineViolationDivergence(const datetime &time[]
 {  
    string objName;
    bool foundUp=false,foundDown=false;
+   bool brokenRule=false;
    
    IndexStruct IndexArray[];      // Array to store High and Low index of indicators
    ArrayResize(IndexArray,lookBackSteps);
@@ -312,7 +310,8 @@ void TrendLineViolationDivergence(const datetime &time[]
    while(!foundUp && benchmarkIndex<lookBackSteps-1) {
       //--- Subsequence index will start at 1
       index=benchmarkIndex+1;
-      while(!foundUp && index<lookBackSteps){
+      brokenRule=false;
+      while(!foundUp && !brokenRule && index<lookBackSteps){
          //--- Current High < Benchmark High and Current arrMax > Benchmark arrMax
          //--- Current High < Previous High and Current arrMax > Previous arrMax      
          if(high[IndexArray[index].idx_High] < high[IndexArray[benchmarkIndex].idx_High] 
@@ -334,6 +333,10 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_High],time[IndexArray[benchmarkIndex].idx_High]
                              ,high[IndexArray[index].idx_High],high[IndexArray[benchmarkIndex].idx_High]
                              ,clrGold,1,STYLE_DOT,false,false);                             
+         //--- Prev Oscilatior value is less than benchmark, rule broken, increase benchmark
+         }else if(high[IndexArray[index].idx_High] < high[IndexArray[index-1].idx_High]
+                  && arrMax[IndexArray[index].idx_High] < arrMax[IndexArray[index-1].idx_High]){
+            brokenRule=true;
          }
          
          index++;
@@ -348,7 +351,8 @@ void TrendLineViolationDivergence(const datetime &time[]
    while(!foundUp && benchmarkIndex<lookBackSteps-1) {
       //--- Subsequence index will start at 1
       index=benchmarkIndex+1;
-      while(!foundUp && index<lookBackSteps){
+      brokenRule=false;
+      while(!foundUp && !brokenRule && index<lookBackSteps){
          //--- Current High > Benchmark High and Current arrMax < Benchmark arrMax
          //--- Current High > Previous High and Current arrMax < Previous arrMax      
          if(high[IndexArray[index].idx_High] > high[IndexArray[benchmarkIndex].idx_High] 
@@ -370,6 +374,10 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_High],time[IndexArray[benchmarkIndex].idx_High]
                              ,high[IndexArray[index].idx_High],high[IndexArray[benchmarkIndex].idx_High]
                              ,clrGold,1,STYLE_DOT,false,false);                             
+         }else if(high[IndexArray[index].idx_High] > high[IndexArray[index-1].idx_High]
+                  && arrMax[IndexArray[index].idx_High] > arrMax[IndexArray[index-1].idx_High]
+         ){
+            brokenRule=true;
          }
          
          index++;
@@ -385,7 +393,8 @@ void TrendLineViolationDivergence(const datetime &time[]
    while(!foundDown && benchmarkIndex<lookBackSteps-1) {
       //--- Subsequence index will start at 1
       index=benchmarkIndex+1;
-      while(!foundDown && index<lookBackSteps){
+      brokenRule=false;
+      while(!foundDown && !brokenRule && index<lookBackSteps){
          //--- Current Low < Benchmark Low and Current arrMin > Benchmark arrMin
          //--- Current Low < Previous Low and Current arrMin > Previous arrMin      
          if(low[IndexArray[index].idx_Low] < low[IndexArray[benchmarkIndex].idx_Low] 
@@ -408,6 +417,10 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_Low],time[IndexArray[benchmarkIndex].idx_Low]
                              ,low[IndexArray[index].idx_Low],low[IndexArray[benchmarkIndex].idx_Low]
                              ,clrGold,1,STYLE_DOT,false,false);
+         }else if(low[IndexArray[index].idx_Low] < low[IndexArray[index-1].idx_Low]
+                  && arrMin[IndexArray[index].idx_Low] < arrMin[IndexArray[index-1].idx_Low]
+         ){
+            brokenRule=true;
          }
          
          index++;
@@ -422,7 +435,8 @@ void TrendLineViolationDivergence(const datetime &time[]
    while(!foundDown && benchmarkIndex<lookBackSteps-1) {
       //--- Subsequence index will start at 1
       index=benchmarkIndex+1;
-      while(!foundDown && index<lookBackSteps){
+      brokenRule=false;
+      while(!foundDown && !brokenRule && index<lookBackSteps){
          //--- Current Low > Benchmark Low and Current arrMin < Benchmark arrMin
          //--- Current Low > Previous Low and Current arrMin < Previous arrMin      
          if(low[IndexArray[index].idx_Low] > low[IndexArray[benchmarkIndex].idx_Low] 
@@ -445,6 +459,10 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_Low],time[IndexArray[benchmarkIndex].idx_Low]
                              ,low[IndexArray[index].idx_Low],low[IndexArray[benchmarkIndex].idx_Low]
                              ,clrGold,1,STYLE_DOT,false,false);
+         }else if(low[IndexArray[index].idx_Low] > low[IndexArray[index-1].idx_Low]
+                  && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[index-1].idx_Low]
+         ){
+            brokenRule=true;
          }
          
          index++;
