@@ -299,10 +299,10 @@ void FindZones(int currentBar
    double cur_Close = close[currentBar];
    double cur_High  = high[currentBar];
    double cur_Low   = low[currentBar];
-      
+
    //--- Find Resistance zones -------------------------------------      
    if (FastHigh[currentBar] > 0.001) {
-      
+
       //--- Possible zone when only current bar is Fast High Fractal
       zone_isPossible = true;
       if (SlowHigh[currentBar] > 0.001) zone_isPossible = false;
@@ -336,14 +336,14 @@ void FindZones(int currentBar
             //--- Zone has been confirmed
             zone_isTouched = true;
             //--- Make sure its been 10+ candles since the prev touch
-            for (j=i+1; j<i+11; j++){
-               if ((zone_isTurncoat == false && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
-                   (zone_isTurncoat == true && FastLow[j] <= H_Value && FastLow[j] >= L_Value))
-               {
-                  zone_isTouched = false;
-                  break;
-               }
-            }
+            //for (j=i+1; j<i+11; j++){
+            //   if ((zone_isTurncoat == false && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
+            //       (zone_isTurncoat == true && FastLow[j] <= H_Value && FastLow[j] >= L_Value))
+            //   {
+            //      zone_isTouched = false;
+            //      break;
+            //   }
+            //}
             
             //--- Zone confirmed. Update number of touches and reset number of burst
             if (zone_isTouched == true){
@@ -389,9 +389,7 @@ void FindZones(int currentBar
          CurrentZones[idx_ZoneFound].zone_EndBar = 0;
          CurrentZones[idx_ZoneFound].zone_IsMerge = false;  
          CurrentZones[idx_ZoneFound].zone_Type = ZONE_RESIST;
-         
-         Print("zone_StartBar:",zone_StartBar);
-         
+                  
          if (zone_touchCount > 3)
             CurrentZones[idx_ZoneFound].zone_Status = ZONE_STRONG;
          else if (zone_touchCount > 0)
@@ -456,14 +454,14 @@ void FindZones(int currentBar
              (zone_isTurncoat == false && FastLow[i] >= L_Value && FastLow[i] <= H_Value)
          ){
             zone_isTouched = true;
-            for (j=i+1; j<i+11; j++){
-               if ((zone_isTurncoat == true && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
-                   (zone_isTurncoat == false && FastLow[j] <= H_Value && FastLow[j] >= L_Value)
-               ){
-                  zone_isTouched = false;
-                  break;
-               }
-            }
+            //for (j=i+1; j<i+11; j++){
+            //   if ((zone_isTurncoat == true && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
+            //       (zone_isTurncoat == false && FastLow[j] <= H_Value && FastLow[j] >= L_Value)
+            //   ){
+            //      zone_isTouched = false;
+            //      break;
+            //   }
+            //}
 
             if (zone_isTouched == true){
                zone_burstCount = 0;

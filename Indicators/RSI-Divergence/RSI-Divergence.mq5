@@ -334,8 +334,9 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,high[IndexArray[index].idx_High],high[IndexArray[benchmarkIndex].idx_High]
                              ,clrGold,1,STYLE_DOT,false,false);                             
          //--- Prev Oscilatior value is less than benchmark, rule broken, increase benchmark
-         }else if(high[IndexArray[index].idx_High] < high[IndexArray[index-1].idx_High]
-                  && arrMax[IndexArray[index].idx_High] < arrMax[IndexArray[index-1].idx_High]){
+         }else if(   (high[IndexArray[index].idx_High] < high[IndexArray[index-1].idx_High] && arrMax[IndexArray[index].idx_High] < arrMax[IndexArray[index-1].idx_High])
+                  || (high[IndexArray[index].idx_High] > high[IndexArray[index-1].idx_High] && arrMax[IndexArray[index].idx_High] > arrMax[IndexArray[index-1].idx_High])
+         ){
             brokenRule=true;
          }
          
@@ -374,8 +375,8 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_High],time[IndexArray[benchmarkIndex].idx_High]
                              ,high[IndexArray[index].idx_High],high[IndexArray[benchmarkIndex].idx_High]
                              ,clrGold,1,STYLE_DOT,false,false);                             
-         }else if(high[IndexArray[index].idx_High] > high[IndexArray[index-1].idx_High]
-                  && arrMax[IndexArray[index].idx_High] > arrMax[IndexArray[index-1].idx_High]
+         }else if(   (high[IndexArray[index].idx_High] < high[IndexArray[index-1].idx_High] && arrMax[IndexArray[index].idx_High] < arrMax[IndexArray[index-1].idx_High])
+                  || (high[IndexArray[index].idx_High] > high[IndexArray[index-1].idx_High] && arrMax[IndexArray[index].idx_High] > arrMax[IndexArray[index-1].idx_High])
          ){
             brokenRule=true;
          }
@@ -402,6 +403,7 @@ void TrendLineViolationDivergence(const datetime &time[]
             && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[benchmarkIndex].idx_Low]
             && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[index-1].idx_Low] ){
 
+
             //--- Update benchmark index to current index
             foundDown=true;
             
@@ -417,8 +419,8 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_Low],time[IndexArray[benchmarkIndex].idx_Low]
                              ,low[IndexArray[index].idx_Low],low[IndexArray[benchmarkIndex].idx_Low]
                              ,clrGold,1,STYLE_DOT,false,false);
-         }else if(low[IndexArray[index].idx_Low] < low[IndexArray[index-1].idx_Low]
-                  && arrMin[IndexArray[index].idx_Low] < arrMin[IndexArray[index-1].idx_Low]
+         }else if(   (low[IndexArray[index].idx_Low] > low[IndexArray[index-1].idx_Low] && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[index-1].idx_Low])
+                  || (low[IndexArray[index].idx_Low] < low[IndexArray[index-1].idx_Low] && arrMin[IndexArray[index].idx_Low] < arrMin[IndexArray[index-1].idx_Low])
          ){
             brokenRule=true;
          }
@@ -459,8 +461,8 @@ void TrendLineViolationDivergence(const datetime &time[]
                              ,time[IndexArray[index].idx_Low],time[IndexArray[benchmarkIndex].idx_Low]
                              ,low[IndexArray[index].idx_Low],low[IndexArray[benchmarkIndex].idx_Low]
                              ,clrGold,1,STYLE_DOT,false,false);
-         }else if(low[IndexArray[index].idx_Low] > low[IndexArray[index-1].idx_Low]
-                  && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[index-1].idx_Low]
+         }else if(   (low[IndexArray[index].idx_Low] > low[IndexArray[index-1].idx_Low] && arrMin[IndexArray[index].idx_Low] > arrMin[IndexArray[index-1].idx_Low])
+                  || (low[IndexArray[index].idx_Low] < low[IndexArray[index-1].idx_Low] && arrMin[IndexArray[index].idx_Low] < arrMin[IndexArray[index-1].idx_Low])
          ){
             brokenRule=true;
          }
