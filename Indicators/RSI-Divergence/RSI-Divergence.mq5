@@ -15,12 +15,10 @@
 bool fn_RemoveObjects(string objName);
 void fn_DisplaySymbol(string objName, int arrowCode, int index, double priceLevel, color symbolColor);
 void fn_MoveSymbol(string objName, int index, double priceLevel);
-double fn_ATR(int currentBar);
 bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentBar, double &highestValue, double &lowestValue);
 void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRayRight,bool objRayLeft);
 void fn_DisplayText(string objName, datetime time, double priceLevel,ENUM_ANCHOR_POINT anchor,double angle, int fontSize, string fontName,color fontColor, string content);
-
 #import
 
 #property strict

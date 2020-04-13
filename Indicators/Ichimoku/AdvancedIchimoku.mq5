@@ -16,11 +16,12 @@
 bool fn_RemoveObjects(string objName);
 void fn_DisplaySymbol(string objName, int arrowCode, int index, double priceLevel, color symbolColor);
 void fn_MoveSymbol(string objName, int index, double priceLevel);
-double fn_ATR(int currentBar);
 bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentBar, double &highestValue, double &lowestValue);
 void fn_DrawTrendLine(string objName,int objWindow,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objRayRight,bool objRayLeft);
 void fn_DisplayText(string objName, datetime time, double priceLevel,ENUM_ANCHOR_POINT anchor,double angle, int fontSize, string fontName,color fontColor, string content);
+int ATRHandle(string symbol,ENUM_TIMEFRAMES timeframe,int period);
+double fn_GetBufferCurrentValue(int handle,int currentBar);
 
 #import
 
@@ -66,7 +67,8 @@ int      ExtBegin=0;          //To define a bar to perform calculation from
 int      NumberOfBars=0;      //Number of bars
 int      checkBarsCalc=0;
 //--- variable for storing the handle of the iIchimoku indicator 
-int      handle; 
+int      handle;
+int      ATRHdl;
 
 bool     kumoBreak=false;   //Flag to indicate kumo break out signal has been detected
 TREND_DIRECTION direction=NO_TREND;
@@ -218,14 +220,11 @@ void KumoBreakout(const int i,
                   const int &spread[]
                   )
 {
-string ObjName;
-double LabelPos;
 int position = InpKijun;
 
    //---If SpanA > Span B then Future sentiment is UP
    //---If Chikou > High of 25 prev bars then Chikou is UP
    //---Thus UP_TREND       
-   //Print("ExtSpanA_Buffer[",i,"]:",ExtSpanA_Buffer[i],"-ExtSpanB_Buffer[",i,"]",ExtSpanB_Buffer[i],"-ExtChikouBuffer[",i,"]",ExtChikouBuffer[i],"-high[",i+position,"]:",high[i+position],"-low[",i+position,"]",low[i+position]);
 
    if(ExtSpanA_Buffer[i] > ExtSpanB_Buffer[i]
       && ExtChikouBuffer[i] > high[i+position]
@@ -239,7 +238,6 @@ int position = InpKijun;
    if(ExtSpanA_Buffer[i] < ExtSpanB_Buffer[i]
       && ExtChikouBuffer[i] < low[i+position]
    ){
-      //Print("ExtChikouBuffer[",i,"]",ExtChikouBuffer[i],"-high[",i+position,"]:",high[i+position],"-low[",i+position,"]",low[i+position]);
       direction=DOWN_TREND;
    }
    //--- Reset trend direction when non of above exists
@@ -261,15 +259,14 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=high[i]+fn_ATR(i)*10*myPoint;
+         KumoBreak_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*10*myPoint;
       }
    }
    
    //---If close below Kijun then reset signal
    if(close[i] < ExtKijunBuffer[i]){
       kumoBreak=false;
-   }
-   
+   }   
      
    //---If DOWN_TREND
    //---Bar 1 close below SpanA and SpanB
@@ -283,7 +280,7 @@ int position = InpKijun;
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=low[i]-fn_ATR(i)*10*myPoint;
+         KumoBreak_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*10*myPoint;
       } 
    }
 
@@ -499,6 +496,7 @@ bool SetIndicatorProperties(void) {
    for(i=0; i<indicator_plots; i++)
       PlotIndexSetDouble(i,PLOT_EMPTY_VALUE,0.0); 
       
+   //--- Setup Ichimoku indicator handle
    handle=iIchimoku(Symbol(),PERIOD_CURRENT,InpTenkan,InpKijun,InpSenkou); 
    //--- if the handle is not created 
    if(handle==INVALID_HANDLE) { 
@@ -510,6 +508,9 @@ bool SetIndicatorProperties(void) {
       //--- the indicator is stopped early 
       return(false); 
    } 
+
+   //--- Setup ATR indicator handle
+   ATRHdl = ATRHandle(NULL,0,7);
 
    return(true);
 }

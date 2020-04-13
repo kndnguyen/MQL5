@@ -88,22 +88,39 @@ bool fn_Fractal(int fractalRange, ENUM_TIMEFRAMES fractal_TimeFrame,int currentB
 }
 
 //+------------------------------------------------------------------+
-//| Function to return ATR value
+//| Function to setup and return ATR handle
+//| To be place at OnInit
 //+------------------------------------------------------------------+
-double fn_ATR(int currentBar) export
+int ATRHandle(string symbol=NULL,ENUM_TIMEFRAMES timeframe=PERIOD_CURRENT,int period=7) export
 {
-   double value = 0;
-   double myArray[100];
-   int handle=iATR(NULL,0,14); 
-   if(handle!=INVALID_HANDLE){
-      CopyBuffer(handle,0,currentBar,100,myArray);
-      value = myArray[0];
+   //--- Setup Oscillator Handle
+   int IndicatorHandle=iATR(symbol,timeframe,period); 
+   //--- if the handle is not created 
+   if(IndicatorHandle==INVALID_HANDLE) { 
+      //--- tell about the failure and output the error code 
+      PrintFormat("Failed to create handle of the ATR indicator for the symbol %s/%s, error code %d", 
+                  Symbol(), 
+                  EnumToString(PERIOD_CURRENT), 
+                  GetLastError()); 
+      //--- the indicator is stopped early 
    }
-   return(true);   
+   return IndicatorHandle;   
 }
 
+//+------------------------------------------------------------------+
+//| Function to setup and return ATR handle
+//| To be place at OnInit
+//+------------------------------------------------------------------+
+double fn_GetBufferCurrentValue(int handle,int currentBar) export
+{
+   double returnValue=0;
+   double targetArray[1];
+   
+   if(CopyBuffer(handle,0,currentBar,1,targetArray)!=-1)
+      returnValue=targetArray[0];
 
-
+   return returnValue;
+}   
 
 //+------------------------------------------------------------------+
 //| Functions to detect Reversal bar
@@ -445,6 +462,101 @@ void fn_ShowCounter(int LoacalToServerTime) export
    iY = ChartGetInteger(0,CHART_HEIGHT_IN_PIXELS,0)-iY;
    fn_DisplayLabel(myLabel,myText,iX,iY,fontSize,myFont,myColor,2);
 }
+
+//+------------------------------------------------------------------+
+//| Function to return Trading session start time
+//+------------------------------------------------------------------+
+bool fn_SessionStartTime(datetime& brokerDiffTime,datetime& SydneyStart,datetime& TokyoStart,datetime& LondonStart,datetime& NewYorkStart) export
+{ 
+	// Do not draw if timeframe is higher than H4
+   if( Period() > PERIOD_H4 ){ return(false); }
+   
+	datetime DSTOffsetTime, currentTime, GMTTime;
+   
+	//--- Trim broker and GMT times to full hours
+	currentTime = MathFloor(TimeCurrent()/3600)*3600;
+	GMTTime = MathFloor(TimeGMT()/3600)*3600;
+	
+	//--- Calculate DaylightSaving in hours instead of seconds
+	DSTOffsetTime = TimeDaylightSavings()/3600;
+	
+	//--- Calculate proper difference between GMT time and broker time.
+	//--- If GMT time is after Friday, 21:00 or before Sunday 22:00 (market close) - weekend
+	if( (fn_DayOfWeek(TimeGMT()) == 5 && fn_HourOfDay(TimeGMT()) > 21) 
+	     || fn_DayOfWeek(TimeGMT()) > 5 
+	     || (fn_DayOfWeek(TimeGMT()) == 0 && fn_HourOfDay(TimeGMT()) < 22) 
+   ){	
+		//--- Go hour by hour from GMT time now to GMT 21:00 on Friday
+		brokerDiffTime = GMTTime;
+		while( fn_DayOfWeek(brokerDiffTime) != 5 || fn_HourOfDay(brokerDiffTime) != 21 )
+		{
+			//--- Count back if broker time is before GMT time
+			if( currentTime < GMTTime ){ brokerDiffTime -= 3600; }
+			//--- Count forward if broker time is ahead of GMT time
+			else{ brokerDiffTime += 3600; }
+		}
+		//--- Proper brokerDiffTime is the difference between broker time and GMT time
+		brokerDiffTime = (currentTime - brokerDiffTime)/3600;
+	}
+	// Monday - Friday -> easy math
+	else
+	{
+		brokerDiffTime = (currentTime - GMTTime)/3600;
+	}
+
+	//Change GMT open hours to broker time hours, convert if passing midnight multiply by the amount of seconds in an hour to convert to datetime format
+   //Sydney Open	10PM GMT (summer) / 9PM GMT (winter)
+   //Sydney Close	 7AM GMT (summer) / 6AM GMT (winter)
+   //Tokyo Open	11PM GMT (summer) / 11PM GMT (winter)
+   //Tokyo Close	 7AM GMT (summer) /  7AM GMT (winter)
+   //London Open	7AM GMT (summer) / 8AM GMT (winter)
+   //London Close	4PM GMT (summer) /  PM GMT (winter)
+   //NY Open	12PM GMT (summer) /  1PM GMT (winter)
+   //NY Close	 9PM GMT (summer) / 10PM GMT (winter)
+	SydneyStart = fn_ConvertTime(22 + DSTOffsetTime + brokerDiffTime)*3600;
+	TokyoStart = fn_ConvertTime(23 + DSTOffsetTime + brokerDiffTime)*3600;
+	LondonStart = fn_ConvertTime(7 + DSTOffsetTime + brokerDiffTime)*3600;
+	NewYorkStart = fn_ConvertTime(12 + DSTOffsetTime + brokerDiffTime)*3600;
+	
+	return (true);
+}
+
+//+------------------------------------------------------------------+
+//| Function to convert time if they past midnight
+//+------------------------------------------------------------------+
+int fn_ConvertTime(datetime time)
+{
+	if( time < 0 )
+	{
+		time = 24 + time;
+	}
+	else if( time > 23 )
+	{
+		time = time - 24;
+	}
+	return(time);
+}
+
+//+------------------------------------------------------------------+
+//| Function return day of week
+//+------------------------------------------------------------------+
+int fn_DayOfWeek(datetime time) export
+{
+   MqlDateTime structTime;
+   TimeToStruct(time,structTime);
+   return structTime.day_of_week;
+}
+
+//+------------------------------------------------------------------+
+//| Function return hour of the day
+//+------------------------------------------------------------------+
+int fn_HourOfDay(datetime time) export
+{
+   MqlDateTime structTime;
+   TimeToStruct(time,structTime);
+   return structTime.hour;
+}
+
 
 //+------------------------------------------------------------------+
 //| Function to check for server connection

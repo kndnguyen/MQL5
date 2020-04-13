@@ -15,12 +15,15 @@
 
 #import "IndicatorLibrary.ex5"
 bool fn_RemoveObjects(string objName);
-double fn_ATR(int currentBar);
 double fn_RoundNearest(double frmValue, double toValue);
 void fn_ShowCounter(int LoacalToServerTime);
 bool fn_FillFractalBuffers(const int currentBar, const int fractalRange, double &fractalH[], double &fractalL[]);
 void fn_DrawRectangle(string objName,datetime objTime1,datetime objTime2,double objPrice1,double objPrice2,color objColor,int objWidth,int objStyle,bool objBackground);
 void fn_DisplayText(string objName, datetime time, double priceLevel,ENUM_ANCHOR_POINT anchor,double angle, int fontSize, string fontName,color fontColor, string content);
+bool fn_SessionStartTime(datetime& brokerDiffTime,datetime& SydneyStart,datetime& TokyoStart,datetime& LondonStart,datetime& NewYorkStart);
+int fn_DayOfWeek(datetime time);
+int ATRHandle(string symbol,ENUM_TIMEFRAMES timeframe,int period);
+double fn_GetBufferCurrentValue(int handle,int currentBar);
 
 #import
 
@@ -57,7 +60,6 @@ struct ZoneTruct
    ZONE_STATUS zone_Status;         // Zone status
    bool        zone_IsTurncoat;     // Zone turncoat flag   
    bool        zone_IsMerge;        // Zone merge flag
-
 };
 
 //+------------------------------------------------------------------+
@@ -91,23 +93,28 @@ input bool   zone_showbroken        = false;
 input string  STYLE_ZONES            = "==========STYLE ZONES==========";
 input bool   zone_merge             = true;        //Merge Zone
 input bool   zone_isExtend          = false;       //Extend Zone
-input bool   zone_solid             = true;        //Display Background
+input bool   zone_solid             = false;        //Display Background
 input int    zone_linewidth         = 1;           //Zone thickness
 input ENUM_LINE_STYLE zone_style    = STYLE_DOT;   //Zone Style
 input int    ShiftEndRight          = 5;           //Extend the end of zones X bars beyond last bar
 input int    zone_limit             = 1000;        //Max number of bars per zone
 
 input string  ZONES_COLOR             = "==========COLOR ZONES==========";
-input color   color_support_possible  = clrDarkSlateGray;
-input color   color_support_untested  = clrDarkSlateGray;
 input color   color_support_verified  = clrNavy;
-input color   color_support_strong    = clrDarkGreen;
-input color   color_support_turncoat  = clrIndigo;
-input color   color_resist_possible   = clrDarkSlateGray;
-input color   color_resist_untested   = clrDarkSlateGray;
 input color   color_resist_verified   = clrMaroon;
+
+input color   color_support_strong    = clrDarkGreen;
 input color   color_resist_strong     = clrFireBrick;
+
+input color   color_support_turncoat  = clrIndigo;
 input color   color_resist_turncoat   = clrIndigo;
+
+input color   color_support_possible  = clrDarkSlateGray;
+input color   color_resist_possible   = clrDarkSlateGray;
+
+input color   color_support_untested  = clrDarkSlateGray;
+input color   color_resist_untested   = clrDarkSlateGray;
+
 input color   color_broken_weak       = clrDarkSlateGray;
 input color   color_broken_verified   = clrGray;
 input color   color_broken_other      = clrDimGray;
@@ -148,6 +155,8 @@ int    mergeBroken_Source[1000];
 int    mergeBroken_count=0;
 
 //--- Environments variables
+int ATRHdl;
+
 int time_offset=0;
 int LatestBar=0;              //Last visible bar on the chart - in Testing mode
 int localToServer;
@@ -160,7 +169,7 @@ int OnInit()
 //--- indicator buffers mapping
    fn_RemoveObjects("SRZone#");
    fn_RemoveObjects("Counter_"); 
-
+   
    SetPropertiesIndicator();
    EventSetMillisecondTimer(100);
 //---
@@ -224,12 +233,12 @@ int OnCalculate(const int rates_total,
    } else {
       //--- Calculate the last value only
       ExtBegin=MathMax(rates_total-prev_calculated, fractal_SlowFactor);      
-   }   
-
+   }
+   
    //--- Fill in the High Bid and Low Ask indicator buffers
    for(int i=0; i<ExtBegin; i++) {
       fn_FillFractalBuffers(i,fractal_FastFactor,FastHigh,FastLow);
-      fn_FillFractalBuffers(i,fractal_SlowFactor,SlowHigh,SlowLow);
+      fn_FillFractalBuffers(i,fractal_SlowFactor,SlowHigh,SlowLow);  
    }   
    
    for(int i=ExtBegin;i>0;i--) {
@@ -253,7 +262,7 @@ void OnTimer()
    if(show_Counter)
       fn_ShowCounter(localToServer);
    else
-      fn_RemoveObjects("counter_");
+      fn_RemoveObjects("Counter_");
    
   }
 //+------------------------------------------------------------------+
@@ -292,8 +301,10 @@ void FindZones(int currentBar
    bool zone_confirmTurncoat=false;
    bool zone_isTouched=false;   
    bool zone_isBusted=false;
+   
+   
    //--- Calculate zone width based on ATR and zone_fuzzValue
-   double atr=fn_ATR(currentBar);
+   double atr = fn_GetBufferCurrentValue(ATRHdl,currentBar);
    double zone_fuzzValue = atr/2*zone_fuzzfactor;
       
    double cur_Close = close[currentBar];
@@ -303,7 +314,7 @@ void FindZones(int currentBar
    //--- Find Resistance zones -------------------------------------      
    if (FastHigh[currentBar] > 0.001) {
 
-      //--- Possible zone when only current bar is Fast High Fractal
+      //--- Find Possible zones
       zone_isPossible = true;
       if (SlowHigh[currentBar] > 0.001) zone_isPossible = false;
 
@@ -322,7 +333,7 @@ void FindZones(int currentBar
       zone_brokenBarCount = 0;
 
       //--- Check past bars to determine type of zone
-      for (i=currentBar; i>0; i--) {
+      for (i=currentBar-1; i>=0; i--) {
          //--- continue looking for high and low value
          H_iValue = high[i];
          L_iValue = low[i];
@@ -336,14 +347,14 @@ void FindZones(int currentBar
             //--- Zone has been confirmed
             zone_isTouched = true;
             //--- Make sure its been 10+ candles since the prev touch
-            //for (j=i+1; j<i+11; j++){
-            //   if ((zone_isTurncoat == false && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
-            //       (zone_isTurncoat == true && FastLow[j] <= H_Value && FastLow[j] >= L_Value))
-            //   {
-            //      zone_isTouched = false;
-            //      break;
-            //   }
-            //}
+            for (j=i+1; j<i+fractal_SlowFactor; j++){
+               if ((zone_isTurncoat == false && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
+                   (zone_isTurncoat == true && FastLow[j] <= H_Value && FastLow[j] >= L_Value))
+               {
+                  zone_isTouched = false;
+                  break;
+               }
+            }
             
             //--- Zone confirmed. Update number of touches and reset number of burst
             if (zone_isTouched == true){
@@ -436,8 +447,9 @@ void FindZones(int currentBar
 
       L_Value = cur_Low;
       if (zone_isExtend == true) L_Value -= zone_fuzzValue;
-
       H_Value = MathMin(MathMax(cur_Close, cur_Low+zone_fuzzValue), cur_Low+zone_fuzzValue*2);
+      
+      
       zone_isTurncoat = false;
       zone_confirmTurncoat = false;
 
@@ -446,7 +458,7 @@ void FindZones(int currentBar
       zone_brokenBarCount=0;
       zone_isBusted=false;
 
-      for (i=currentBar; i>0; i--) {
+      for (i=currentBar-1; i>0; i--) {
          H_iValue = high[i];
          L_iValue = low[i];
 
@@ -454,14 +466,14 @@ void FindZones(int currentBar
              (zone_isTurncoat == false && FastLow[i] >= L_Value && FastLow[i] <= H_Value)
          ){
             zone_isTouched = true;
-            //for (j=i+1; j<i+11; j++){
-            //   if ((zone_isTurncoat == true && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
-            //       (zone_isTurncoat == false && FastLow[j] <= H_Value && FastLow[j] >= L_Value)
-            //   ){
-            //      zone_isTouched = false;
-            //      break;
-            //   }
-            //}
+            for (j=i+1; j<i+fractal_SlowFactor; j++){
+               if ((zone_isTurncoat == true && FastHigh[j] >= L_Value && FastHigh[j] <= H_Value) ||
+                   (zone_isTurncoat == false && FastLow[j] <= H_Value && FastLow[j] >= L_Value)
+               ){
+                  zone_isTouched = false;
+                  break;
+               }
+            }
 
             if (zone_isTouched == true){
                zone_burstCount = 0;
@@ -760,7 +772,7 @@ void DrawZones(const datetime &time[])
    fn_RemoveObjects("SRZone#");
    
    //--- Iterate through all found zones and display them
-   for (int i=0; i<idx_ZoneAfterMerged; i++){
+   for (int i=0; i<idx_ZoneToDraw; i++){
    
       if (CurrentZones[i].zone_Status == ZONE_UNTESTED && zone_show_untested == false)
          continue;
@@ -897,7 +909,28 @@ void DrawZones(const datetime &time[])
 }//--- End draw zones
 
 
+//+------------------------------------------------------------------+ 
+//| Filling indicator buffers from the iIchimoku indicator           | 
+//+------------------------------------------------------------------+ 
+bool FillArraysFromBuffers(double &buffer[],    // indicator buffer of the ATR
+                           int ind_handle,         // handle of the indicator 
+                           int amount              // number of copied values 
+                           ) 
+{ 
+   //--- reset error code 
+   ResetLastError(); 
+   
+   //--- fill a part of the arrBuffer array with values from the indicator buffer that has 0 index 
+   if(CopyBuffer(ind_handle,0,0,amount,buffer)<0) { 
+      //--- if the copying fails, tell the error code 
+      PrintFormat("1.Failed to copy data from the ATR indicator, error code %d",GetLastError()); 
+      //--- quit with zero result - it means that the indicator is considered as not calculated 
+    return(false); 
+   } 
 
+   //--- everything is fine 
+   return(true); 
+} 
 //+------------------------------------------------------------------+
 //| Set the indicator properties                                     |
 //+------------------------------------------------------------------+
@@ -919,9 +952,10 @@ void SetPropertiesIndicator(void) {
    ArraySetAsSeries(SlowHigh,true);
    ArraySetAsSeries(FastLow,true);
    ArraySetAsSeries(FastHigh,true);
-
+   //ArraySetAsSeries(ATR,true);
+   
    //--- Set the labels
-   string text[]= {"Slow Fractal L","Slow Fractal H","Fast Fractal L","Frast Fractal H"};
+   string text[]= {"Slow Fractal L","Slow Fractal H","Fast Fractal L","Fast Fractal H"};
    for(i=0; i<indicator_plots; i++)
       PlotIndexSetString(i,PLOT_LABEL,text[i]);
 
@@ -948,7 +982,10 @@ void SetPropertiesIndicator(void) {
    PlotIndexSetInteger(3,PLOT_LINE_COLOR,clrDarkBlue);
  
    for(i=0; i<indicator_plots; i++)
-      PlotIndexSetDouble(i,PLOT_EMPTY_VALUE,0.0); 
+      PlotIndexSetDouble(i,PLOT_EMPTY_VALUE,0.0);
+
+   //--- Setup ATR indicator handle
+   ATRHdl = ATRHandle(NULL,0,7);
 }
 
 //+------------------------------------------------------------------+
