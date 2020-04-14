@@ -27,8 +27,8 @@ double fn_GetBufferCurrentValue(int handle,int currentBar);
 
 #property indicator_chart_window
 //--- Number of buffers
-#property indicator_buffers 8
-#property indicator_plots   7
+#property indicator_buffers 9
+#property indicator_plots   8
 //--- Colour for filled Kumo
 #property indicator_color3  clrMidnightBlue,clrMaroon
 
@@ -56,9 +56,10 @@ double ExtKijunBuffer[];
 double ExtSpanA_Buffer[];
 double ExtSpanB_Buffer[];
 double ExtChikouBuffer[];
-double KumoBreak_Buffer[];
 double HighFractal_Buffer[];
 double LowFractal_Buffer[];
+double KumoBreak_Buffer[];
+double TKCross_Buffer[];
 
 //+------------------------------------------------------------------+
 //| Indicator Variables
@@ -71,8 +72,11 @@ int      handle;
 int      ATRHdl;
 
 bool     kumoBreak=false;   //Flag to indicate kumo break out signal has been detected
-TREND_DIRECTION direction=NO_TREND;
+bool     tkCross=false;     //Flag to indicate Tenkansen has crossed Kijunsend
 
+TREND_DIRECTION direction=NO_TREND;
+TREND_DIRECTION chikouCrossDirection=NO_TREND;
+TREND_DIRECTION TKCrossDirection=NO_TREND;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -177,9 +181,10 @@ int OnCalculate(const int rates_total,
 
    ExtBegin = InpKijun+1;   
    //--- Detect signals 
-   for(int i=1; i<rates_total-ExtBegin; i++) {
+   for(int i=0; i<rates_total-ExtBegin; i++) {
       fn_FillFractalBuffers(i,FractalRange,HighFractal_Buffer,LowFractal_Buffer);
       KumoBreakout(i, time, open, close, high, low, spread);
+      TKCross(i, time, open, close, high, low, spread);
    }
 
 //--- return value of prev_calculated for next call
@@ -209,6 +214,114 @@ void OnChartEvent(const int id,
 //+------------------------------------------------------------------+
 
 //+------------------------------------------------------------------+
+//| Function to detect Tenkan-Kijun Cross
+//+------------------------------------------------------------------+
+void TKCross(const int i,
+                  const datetime &time[],
+                  const double &open[],
+                  const double &close[],
+                  const double &high[],
+                  const double &low[],
+                  const int &spread[]
+                  )
+{
+   int position = InpKijun;
+
+   //--- Gold Cross of Chikou
+   //--- UP_TREND
+   if(ExtChikouBuffer[i+position] > MathMax(open[i+position],close[i+position])){
+      chikouCrossDirection = UP_TREND;
+   }else
+   //--- Death cross of Chikou
+   //--- DOWN_TREND
+   if(ExtChikouBuffer[i+position] < MathMin(open[i+position],close[i+position])){
+      chikouCrossDirection = DOWN_TREND;
+   }else
+   ////--- Gold cross of TK
+   //if(   ExtTenkanBuffer[i] > ExtKijunBuffer[i]
+   //   && ExtTenkanBuffer[i+1] > ExtKijunBuffer[i+1]
+   //   && ExtTenkanBuffer[i+2] <= ExtKijunBuffer[i+2]
+   //){
+   //   TKCrossDirection = UP_TREND;
+   //}else
+   ////--- Death corss of TK
+   //if(   ExtTenkanBuffer[i] < ExtKijunBuffer[i]
+   //   && ExtTenkanBuffer[i+1] < ExtKijunBuffer[i+1]
+   //   && ExtTenkanBuffer[i+2] >= ExtKijunBuffer[i+2]
+   //){   
+   //   TKCrossDirection = DOWN_TREND; 
+   {
+   //--- NO_TREND
+      chikouCrossDirection = NO_TREND;
+      TKCross_Buffer[i]=0;
+   }
+   
+   //--- When Gold Cross of Chikou first
+   //--- Then Gold cross of Tenkan-Kijun
+   if(   chikouCrossDirection == UP_TREND
+      && ExtTenkanBuffer[i] > ExtKijunBuffer[i]
+      && ExtTenkanBuffer[i+1] > ExtKijunBuffer[i+1]
+      && ExtTenkanBuffer[i+2] <= ExtKijunBuffer[i+2]
+   ){
+      if(!tkCross){
+         tkCross=true;
+         TKCross_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+      }   
+   }   
+
+   //--- When Gold Cross of Tenkan-Kijun first
+   //--- Then Gold cross of Chikou
+//   if(   TKCrossDirection == UP_TREND
+//      && ExtChikouBuffer[i+position] > MathMax(open[i+position],close[i+position])
+//   ){
+//      if(!tkCross){
+//         tkCross=true;
+//         TKCross_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+//      }   
+//   }   
+
+   //--- Reset signal if Open/Close Below Kijun
+   if(   (chikouCrossDirection == UP_TREND || TKCrossDirection == UP_TREND)
+      && MathMin(open[i],close[i]) < ExtKijunBuffer[i]
+   ){
+      tkCross=false;
+   }   
+  
+   //--- When Death cross of Chikou first
+   //--- Then Death cross of Tenkan-Kijun
+   if(   chikouCrossDirection == DOWN_TREND
+      && ExtTenkanBuffer[i] < ExtKijunBuffer[i]
+      && ExtTenkanBuffer[i+1] < ExtKijunBuffer[i+1]
+      && ExtTenkanBuffer[i+2] >= ExtKijunBuffer[i+2]
+   ){
+      if(!tkCross){
+         tkCross=true;
+         TKCross_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+      }   
+   }   
+
+   //--- When Death cross of Tenkan-Kijun first
+   //--- Then Death cross of Chikou
+   //if(   TKCrossDirection == DOWN_TREND
+   //   && ExtChikouBuffer[i+position] < MathMin(open[i+position],close[i+position])
+   //){
+   //   if(!tkCross){
+   //      tkCross=true;
+   //      TKCross_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+   //   }   
+   //}   
+
+   //--- Reset signal if Oepn/Close above Kijun
+   if(   (chikouCrossDirection == DOWN_TREND)
+      && MathMax(open[i],close[i])>ExtKijunBuffer[i]
+   ){
+      tkCross=false;
+   }   
+
+}//---
+
+
+//+------------------------------------------------------------------+
 //| Function to detect Kumo breakout signal
 //+------------------------------------------------------------------+
 void KumoBreakout(const int i,
@@ -220,12 +333,11 @@ void KumoBreakout(const int i,
                   const int &spread[]
                   )
 {
-int position = InpKijun;
+   int position = InpKijun;
 
    //---If SpanA > Span B then Future sentiment is UP
    //---If Chikou > High of 25 prev bars then Chikou is UP
    //---Thus UP_TREND       
-
    if(ExtSpanA_Buffer[i] > ExtSpanB_Buffer[i]
       && ExtChikouBuffer[i] > high[i+position]
    ){
@@ -246,25 +358,25 @@ int position = InpKijun;
       KumoBreak_Buffer[i]=0;
    }
    
-   
    //---If UP_TREND
-   //---Bar 1 close above SpanA and SpanB
-   //---Bar 1 close above Kijun  
+   //---Bar 1 open/close above SpanA and SpanB
+   //---Bar 1 open/close above Kijun  
    if(direction==UP_TREND
       && close[i] > ExtKijunBuffer[i]
-      && close[i] > ExtSpanA_Buffer[i+position] && close[i] > ExtSpanB_Buffer[i+position]
-      && (     (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && open[i] < ExtSpanB_Buffer[i+position]) 
-            || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && open[i] < ExtSpanA_Buffer[i+position]) 
+      && close[i] > ExtSpanA_Buffer[i+position] 
+      && close[i] > ExtSpanB_Buffer[i+position]
+      && (     (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanB_Buffer[i+position]) 
+            || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanA_Buffer[i+position]) 
          )
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*10*myPoint;
+         KumoBreak_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
       }
    }
    
    //---If close below Kijun then reset signal
-   if(close[i] < ExtKijunBuffer[i]){
+   if(direction==UP_TREND && (close[i] < ExtKijunBuffer[i] || ExtTenkanBuffer[i] < ExtKijunBuffer[i]) ){
       kumoBreak=false;
    }   
      
@@ -273,19 +385,20 @@ int position = InpKijun;
    //---Bar 1 close below Kijun  
    if(direction==DOWN_TREND
       && close[i] < ExtKijunBuffer[i]
-      && close[i] < ExtSpanA_Buffer[i+position] && close[i] < ExtSpanB_Buffer[i+position]
-      && (     (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && open[i] > ExtSpanA_Buffer[i+position]) 
-            || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && open[i] > ExtSpanB_Buffer[i+position])
+      && close[i] < ExtSpanA_Buffer[i+position] 
+      && close[i] < ExtSpanB_Buffer[i+position]
+      && (     (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && MathMax(high[i],open[i]) > ExtSpanA_Buffer[i+position]) 
+            || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && MathMax(high[i],open[i]) > ExtSpanB_Buffer[i+position])
          )
    ){
       if(!kumoBreak){
          kumoBreak=true;
-         KumoBreak_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*10*myPoint;
+         KumoBreak_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
       } 
    }
 
    //---If close above Kijun then reset signal
-   if(close[i] > ExtKijunBuffer[i]){
+   if(direction == DOWN_TREND && (close[i] > ExtKijunBuffer[i] || ExtTenkanBuffer[i] > ExtKijunBuffer[i] ) ){
       kumoBreak=false;
    }   
   
@@ -417,18 +530,21 @@ bool SetIndicatorProperties(void) {
    SetIndexBuffer(2, ExtSpanA_Buffer, INDICATOR_DATA);    //Kumo A
    SetIndexBuffer(3, ExtSpanB_Buffer, INDICATOR_DATA);    //Kumo B   
    SetIndexBuffer(4, ExtChikouBuffer, INDICATOR_DATA);    //Chikou
-   SetIndexBuffer(5, KumoBreak_Buffer, INDICATOR_DATA);   //Kumo breakout signal
-   SetIndexBuffer(6, HighFractal_Buffer, INDICATOR_DATA); //High Fractal
-   SetIndexBuffer(7, LowFractal_Buffer, INDICATOR_DATA);  //Low Fractal
+   SetIndexBuffer(5, HighFractal_Buffer, INDICATOR_DATA); //High Fractal
+   SetIndexBuffer(6, LowFractal_Buffer, INDICATOR_DATA);  //Low Fractal
+   SetIndexBuffer(7, KumoBreak_Buffer, INDICATOR_DATA);   //Kumo breakout signal
+   SetIndexBuffer(8, TKCross_Buffer, INDICATOR_DATA);     //TK Cross signal
+
 
    ArraySetAsSeries(ExtTenkanBuffer,true);
    ArraySetAsSeries(ExtKijunBuffer,true);
    ArraySetAsSeries(ExtSpanA_Buffer,true);
    ArraySetAsSeries(ExtSpanB_Buffer,true);
    ArraySetAsSeries(ExtChikouBuffer,true);
-   ArraySetAsSeries(KumoBreak_Buffer,true);
    ArraySetAsSeries(HighFractal_Buffer,true);
    ArraySetAsSeries(LowFractal_Buffer,true);
+   ArraySetAsSeries(KumoBreak_Buffer,true);
+   ArraySetAsSeries(TKCross_Buffer,true);
 
    //--- Set the labels
    //string text[]= {"Tenkan Sen", "Kijun Sen", "Senkou Span A", "Senkou Span B", "Chikou Span", "Kumo Break", "High Fractal", "Low Fractal"};
@@ -471,27 +587,34 @@ bool SetIndicatorProperties(void) {
    PlotIndexSetInteger(3,PLOT_LINE_STYLE,STYLE_SOLID);
    PlotIndexSetInteger(3,PLOT_LINE_COLOR,clrDarkGoldenrod);
    PlotIndexSetInteger(3,PLOT_LINE_WIDTH,1);
-
-   //--- Kumo Break out signal
-   PlotIndexSetString(4,PLOT_LABEL,"KumoBreak");      
-   PlotIndexSetInteger(4,PLOT_DRAW_TYPE,DRAW_ARROW);
-   PlotIndexSetInteger(4,PLOT_ARROW,181);   
-   PlotIndexSetInteger(4,PLOT_LINE_COLOR,0,clrGold);
-   PlotIndexSetInteger(4,PLOT_LINE_WIDTH,2);
    
    //--- High Fractals
-   PlotIndexSetString(5,PLOT_LABEL,"H-Fractals");   
-   PlotIndexSetInteger(5,PLOT_DRAW_TYPE,DRAW_ARROW);
-   PlotIndexSetInteger(5,PLOT_ARROW,217);
-   PlotIndexSetInteger(5,PLOT_ARROW_SHIFT,-10);
-   PlotIndexSetInteger(5,PLOT_LINE_COLOR,clrGray);
+   PlotIndexSetString(4,PLOT_LABEL,"H-Fractals");   
+   PlotIndexSetInteger(4,PLOT_DRAW_TYPE,DRAW_ARROW);
+   PlotIndexSetInteger(4,PLOT_ARROW,217);
+   PlotIndexSetInteger(4,PLOT_ARROW_SHIFT,-10);
+   PlotIndexSetInteger(4,PLOT_LINE_COLOR,clrGray);
 
    //--- Low Fractals
-   PlotIndexSetString(6,PLOT_LABEL,"L-Fractals");  
+   PlotIndexSetString(5,PLOT_LABEL,"L-Fractals");  
+   PlotIndexSetInteger(5,PLOT_DRAW_TYPE,DRAW_ARROW);
+   PlotIndexSetInteger(5,PLOT_ARROW,218);
+   PlotIndexSetInteger(5,PLOT_ARROW_SHIFT,10);
+   PlotIndexSetInteger(5,PLOT_LINE_COLOR,clrGray);
+
+   //--- Kumo Break out signal
+   PlotIndexSetString(6,PLOT_LABEL,"KumoBreak");      
    PlotIndexSetInteger(6,PLOT_DRAW_TYPE,DRAW_ARROW);
-   PlotIndexSetInteger(6,PLOT_ARROW,218);
-   PlotIndexSetInteger(6,PLOT_ARROW_SHIFT,10);
-   PlotIndexSetInteger(6,PLOT_LINE_COLOR,clrGray);
+   PlotIndexSetInteger(6,PLOT_ARROW,181);   
+   PlotIndexSetInteger(6,PLOT_LINE_COLOR,0,clrGold);
+   PlotIndexSetInteger(6,PLOT_LINE_WIDTH,2);
+
+   //--- TK Cross signal
+   PlotIndexSetString(7,PLOT_LABEL,"TKCross");      
+   PlotIndexSetInteger(7,PLOT_DRAW_TYPE,DRAW_ARROW);
+   PlotIndexSetInteger(7,PLOT_ARROW,181);   
+   PlotIndexSetInteger(7,PLOT_LINE_COLOR,0,clrSilver);
+   PlotIndexSetInteger(7,PLOT_LINE_WIDTH,2);
 
    for(i=0; i<indicator_plots; i++)
       PlotIndexSetDouble(i,PLOT_EMPTY_VALUE,0.0); 

@@ -33,6 +33,14 @@ enum CONTROL_STATUS
    START=1,
 };
 
+enum SCALE_MODE
+{
+   NO_SCALE=0,
+   MANUAL_SCALE=1,
+   AUTO_SCALE=2,
+   ALWAYS_SCALE=3,
+};
+
 //+------------------------------------------------------------------+
 //| Struct declaration
 //+------------------------------------------------------------------+
@@ -80,7 +88,7 @@ struct GridParameters
    int               grid_ResetLevel;
    int               grid_ScaleFactor;
    int               grid_ScaleStartLevel;
-   int               grid_ScaleMode;
+   SCALE_MODE        grid_ScaleMode;
    
    //--- To be displayed parameters
    int               grid_CurLongLevel;
