@@ -184,7 +184,8 @@ int OnCalculate(const int rates_total,
    for(int i=0; i<rates_total-ExtBegin; i++) {
       fn_FillFractalBuffers(i,FractalRange,HighFractal_Buffer,LowFractal_Buffer);
       KumoBreakout(i, time, open, close, high, low, spread);
-      TKCross(i, time, open, close, high, low, spread);
+      TKCross1(i, time, open, close, high, low, spread);
+      TKCross2(i, time, open, close, high, low, spread);   
    }
 
 //--- return value of prev_calculated for next call
@@ -216,7 +217,81 @@ void OnChartEvent(const int id,
 //+------------------------------------------------------------------+
 //| Function to detect Tenkan-Kijun Cross
 //+------------------------------------------------------------------+
-void TKCross(const int i,
+void TKCross2(const int i,
+                  const datetime &time[],
+                  const double &open[],
+                  const double &close[],
+                  const double &high[],
+                  const double &low[],
+                  const int &spread[]
+                  )
+{
+   int position = InpKijun;
+
+   //--- Gold Cross of Tenkan Kijun
+   //--- UP_TREND
+   if(   ExtTenkanBuffer[i] > ExtKijunBuffer[i]
+      && ExtTenkanBuffer[i+1] > ExtKijunBuffer[i+1]
+      && ExtTenkanBuffer[i+2] <= ExtKijunBuffer[i+2]
+   ){
+      TKCrossDirection = UP_TREND;
+   }else
+   //--- Death corss of TK
+   if(   ExtTenkanBuffer[i] < ExtKijunBuffer[i]
+      && ExtTenkanBuffer[i+1] < ExtKijunBuffer[i+1]
+      && ExtTenkanBuffer[i+2] >= ExtKijunBuffer[i+2]
+   ){   
+      TKCrossDirection = DOWN_TREND; 
+   }else{
+   //--- NO_TREND
+      TKCrossDirection = NO_TREND;
+   }
+   
+   //--- When Gold Cross of Tenkan-Kijun first
+   //--- Then Gold cross of Chikou
+   if(   TKCrossDirection == UP_TREND
+      && ExtChikouBuffer[i+position] > MathMax(open[i+position],close[i+position])
+      && ExtChikouBuffer[i+position+1] <= MathMax(open[i+position+1],close[i+position+1])
+   ){
+      if(!tkCross){
+         tkCross=true;
+         TKCross_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+      }   
+   }   
+
+   //--- Reset signal if Open/Close Below Kijun
+   if(   (TKCrossDirection == UP_TREND)
+      && ExtChikouBuffer[i+position] < close[i+position]
+   ){
+      tkCross=false;
+   }   
+  
+   //--- When Death cross of Tenkan-Kijun first
+   //--- Then Death cross of Chikou
+   if(   TKCrossDirection == DOWN_TREND
+      && ExtChikouBuffer[i+position] < MathMin(open[i+position],close[i+position])
+      && ExtChikouBuffer[i+position+1] >= MathMax(open[i+position+1],close[i+position+1])
+   ){
+      if(!tkCross){
+         tkCross=true;
+         TKCross_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
+      }   
+   }   
+
+   //--- Reset signal if Oepn/Close above Kijun
+   if(   (TKCrossDirection == DOWN_TREND)
+      && ExtChikouBuffer[i+position] >= close[i+position]
+   ){
+      tkCross=false;
+   }   
+
+}//---
+
+
+//+------------------------------------------------------------------+
+//| Function to detect Tenkan-Kijun Cross
+//+------------------------------------------------------------------+
+void TKCross1(const int i,
                   const datetime &time[],
                   const double &open[],
                   const double &close[],
@@ -237,23 +312,10 @@ void TKCross(const int i,
    if(ExtChikouBuffer[i+position] < MathMin(open[i+position],close[i+position])){
       chikouCrossDirection = DOWN_TREND;
    }else
-   ////--- Gold cross of TK
-   //if(   ExtTenkanBuffer[i] > ExtKijunBuffer[i]
-   //   && ExtTenkanBuffer[i+1] > ExtKijunBuffer[i+1]
-   //   && ExtTenkanBuffer[i+2] <= ExtKijunBuffer[i+2]
-   //){
-   //   TKCrossDirection = UP_TREND;
-   //}else
-   ////--- Death corss of TK
-   //if(   ExtTenkanBuffer[i] < ExtKijunBuffer[i]
-   //   && ExtTenkanBuffer[i+1] < ExtKijunBuffer[i+1]
-   //   && ExtTenkanBuffer[i+2] >= ExtKijunBuffer[i+2]
-   //){   
-   //   TKCrossDirection = DOWN_TREND; 
    {
    //--- NO_TREND
       chikouCrossDirection = NO_TREND;
-      TKCross_Buffer[i]=0;
+      //TKCross_Buffer[i]=0;
    }
    
    //--- When Gold Cross of Chikou first
@@ -262,6 +324,7 @@ void TKCross(const int i,
       && ExtTenkanBuffer[i] > ExtKijunBuffer[i]
       && ExtTenkanBuffer[i+1] > ExtKijunBuffer[i+1]
       && ExtTenkanBuffer[i+2] <= ExtKijunBuffer[i+2]
+      && ExtSpanA_Buffer[i] >= ExtSpanB_Buffer[i]
    ){
       if(!tkCross){
          tkCross=true;
@@ -269,20 +332,9 @@ void TKCross(const int i,
       }   
    }   
 
-   //--- When Gold Cross of Tenkan-Kijun first
-   //--- Then Gold cross of Chikou
-//   if(   TKCrossDirection == UP_TREND
-//      && ExtChikouBuffer[i+position] > MathMax(open[i+position],close[i+position])
-//   ){
-//      if(!tkCross){
-//         tkCross=true;
-//         TKCross_Buffer[i]=high[i]+fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
-//      }   
-//   }   
-
    //--- Reset signal if Open/Close Below Kijun
-   if(   (chikouCrossDirection == UP_TREND || TKCrossDirection == UP_TREND)
-      && MathMin(open[i],close[i]) < ExtKijunBuffer[i]
+   if(   (chikouCrossDirection == UP_TREND)
+      && (MathMin(open[i],close[i]) < ExtKijunBuffer[i] || ExtTenkanBuffer[i] <= ExtKijunBuffer[i])
    ){
       tkCross=false;
    }   
@@ -293,6 +345,7 @@ void TKCross(const int i,
       && ExtTenkanBuffer[i] < ExtKijunBuffer[i]
       && ExtTenkanBuffer[i+1] < ExtKijunBuffer[i+1]
       && ExtTenkanBuffer[i+2] >= ExtKijunBuffer[i+2]
+      && ExtSpanA_Buffer[i] <= ExtSpanB_Buffer[i]
    ){
       if(!tkCross){
          tkCross=true;
@@ -300,20 +353,9 @@ void TKCross(const int i,
       }   
    }   
 
-   //--- When Death cross of Tenkan-Kijun first
-   //--- Then Death cross of Chikou
-   //if(   TKCrossDirection == DOWN_TREND
-   //   && ExtChikouBuffer[i+position] < MathMin(open[i+position],close[i+position])
-   //){
-   //   if(!tkCross){
-   //      tkCross=true;
-   //      TKCross_Buffer[i]=low[i]-fn_GetBufferCurrentValue(ATRHdl,i)*30*myPoint;
-   //   }   
-   //}   
-
    //--- Reset signal if Oepn/Close above Kijun
    if(   (chikouCrossDirection == DOWN_TREND)
-      && MathMax(open[i],close[i])>ExtKijunBuffer[i]
+      && (MathMax(open[i],close[i])>ExtKijunBuffer[i] || ExtTenkanBuffer[i] >= ExtKijunBuffer[i])
    ){
       tkCross=false;
    }   
@@ -337,18 +379,22 @@ void KumoBreakout(const int i,
 
    //---If SpanA > Span B then Future sentiment is UP
    //---If Chikou > High of 25 prev bars then Chikou is UP
+   //---If Tenkan > Kijun
    //---Thus UP_TREND       
    if(ExtSpanA_Buffer[i] > ExtSpanB_Buffer[i]
       && ExtChikouBuffer[i] > high[i+position]
+      && ExtTenkanBuffer[i] > ExtKijunBuffer[i]
    ){
       //Print("ExtChikouBuffer[",i,"]",ExtChikouBuffer[i],"-high[",i+position,"]:",high[i+position],"-low[",i+position,"]",low[i+position]);
       direction=UP_TREND;     
    }else 
    //---If SpanA < Span B then Future sentiment is DOWN
    //---If Chikou < Low of 25 prev bars then Chikou is DOWN
+   //---If Tenkan < Kijun
    //---Thus DOWN_TREND   
    if(ExtSpanA_Buffer[i] < ExtSpanB_Buffer[i]
       && ExtChikouBuffer[i] < low[i+position]
+      && ExtTenkanBuffer[i] < ExtKijunBuffer[i]
    ){
       direction=DOWN_TREND;
    }
@@ -365,8 +411,8 @@ void KumoBreakout(const int i,
       && close[i] > ExtKijunBuffer[i]
       && close[i] > ExtSpanA_Buffer[i+position] 
       && close[i] > ExtSpanB_Buffer[i+position]
-      && (     (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanB_Buffer[i+position]) 
-            || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanA_Buffer[i+position]) 
+      && ( (ExtSpanA_Buffer[i+position] < ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanB_Buffer[i+position]) 
+         || (ExtSpanA_Buffer[i+position] > ExtSpanB_Buffer[i+position] && MathMin(low[i],open[i]) < ExtSpanA_Buffer[i+position]) 
          )
    ){
       if(!kumoBreak){
@@ -651,6 +697,7 @@ void ZeroIndicatorBuffers(void)
    ArrayInitialize(KumoBreak_Buffer,0);
    ArrayInitialize(HighFractal_Buffer,0);
    ArrayInitialize(LowFractal_Buffer,0);
+   ArrayInitialize(TKCross_Buffer,0);
 }
 
 //+------------------------------------------------------------------+

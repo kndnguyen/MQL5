@@ -40,14 +40,21 @@ struct SessionStruct
 //+------------------------------------------------------------------+
 #property strict
 #property indicator_chart_window
-#property indicator_buffers 0
-#property indicator_plots   0
+#property indicator_buffers 2
+#property indicator_plots   2
 
-
+//+------------------------------------------------------------------+
+//| Indicator Buffers
+//+------------------------------------------------------------------+
+double ssLongBreak[];         //Session Long break out
+double ssShortBreak[];        //Session Short break out
 
 //+------------------------------------------------------------------+
 //| Indicator Inputs
 //+------------------------------------------------------------------+
+input string  Asian_Breakout        = "==========Asian Breakout==========";
+input bool     showAsianBreakout    = true;           //Show Asian Breakout
+
 input string  TRADE_SESSION         = "==========TRADING SESSIONS==========";
 input bool     showSydney           = true;           //Show Sydney Sessiom
 input color    colorSydney          = clrYellow;
@@ -62,7 +69,7 @@ input color    colorNewYork         = clrCornflowerBlue;
 //| Indicator Variables
 //+------------------------------------------------------------------+
 int      ExtBegin=0;          //To define a bar to perform calculation from
-int      NumberOfBars=5000;   //Number of bars
+int      NumberOfBars=10000;   //Number of bars
 int      checkBarsCalc=0;     //Number of bars required for calculation
 
 //--- Variable for drawing Trading Session
@@ -71,6 +78,8 @@ SessionStruct SYD, TKY, LDN, NYC;
 #define  maxSession 365;
 datetime brokerDiffTime;
 datetime SYD_StartHour,TKY_StartHour,LDN_StartHour,NYC_StartHour;
+
+bool     LDNIsClosed=false, AsianLongBreak=false, AsianShortBreak=false; //Flag to indicate breakout has been found
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -108,10 +117,10 @@ int OnCalculate(const int rates_total,
 //---
    //--- Revert access to array
    ArraySetAsSeries(time,true);
-   //ArraySetAsSeries(open,true);
+   ArraySetAsSeries(open,true);
    ArraySetAsSeries(high,true);
    ArraySetAsSeries(low,true);
-   //ArraySetAsSeries(close,true);
+   ArraySetAsSeries(close,true);
    //ArraySetAsSeries(tick_volume,true);
    //ArraySetAsSeries(volume,true);
    //ArraySetAsSeries(spread,true);
@@ -136,11 +145,13 @@ int OnCalculate(const int rates_total,
         
    } else {
       //--- Calculate the last value only
-      ExtBegin=MathMax(rates_total-prev_calculated,1);      
+      ExtBegin=MathMax(rates_total-prev_calculated,2);      
    }  
 
    //--- Draw sessions from current datetime
-   for(int currentBar=ExtBegin; currentBar>0; currentBar--){   
+   for(int currentBar=ExtBegin-1; currentBar>0; currentBar--){
+      if (showAsianBreakout) AsianBreakout(currentBar,LDN,brokerDiffTime,time,high,low,open,close);
+      
       if(showSydney) ShowSession(currentBar,SYD,brokerDiffTime,time,high,low);
       if(showTokyo) ShowSession(currentBar,TKY,brokerDiffTime,time,high,low);
       if(showLondon) ShowSession(currentBar,LDN,brokerDiffTime,time,high,low);
@@ -171,6 +182,103 @@ void OnChartEvent(const int id,
 }
 //+------------------------------------------------------------------+
 
+//+------------------------------------------------------------------+
+//| Function to detect Asian Breakout
+//+------------------------------------------------------------------+
+void AsianBreakout(int currentBar
+                    ,SessionStruct &currentSession
+                    ,const datetime brokerDiffTime
+                    ,const datetime &time[]
+                    ,const double &high[]
+                    ,const double &low[]
+                    ,const double &open[]
+                    ,const double &close[]
+                    )
+{
+int currentDay, currentTime;
+datetime startTime,resetTime;
+int sessionBeginBar, sessionEndBar;
+double sessionHigh, sessionLow;
+string objName, lblName, lblDescription;
+
+	//--- Do not draw if timeframe is higher than M30
+   if(Period() > PERIOD_M30) {
+      Print("Asian breakout only visible in M30 or below timeframe");
+      return;
+   }
+
+   //--- Calculate today's number and convert to seconds for datetime format
+   currentDay = MathFloor(time[currentBar]/86400);
+   currentTime = currentDay*86400;
+
+   
+   //--- Calculate start and end of 1 hr before London open
+   currentSession.ssStart = currentTime + currentSession.ssStartHour-1*3600;
+   currentSession.ssEnd = currentSession.ssStart + 1*3600;
+   
+   startTime = currentTime + currentSession.ssStartHour;
+   resetTime = startTime + 8*3600;
+   
+   //--- Draw only from Sunday until Friday GMT time
+   if(fn_DayOfWeek(currentTime-brokerDiffTime*3600) <= 5){   
+      
+      //--- Trim if end is after current time
+      if( currentSession.ssEnd > TimeCurrent() ){ 
+         currentSession.ssEnd = TimeCurrent();
+      }         
+      
+      //--- Flag to indicate London session open/close
+      if(startTime <= time[currentBar] && time[currentBar] <= resetTime){ 
+         LDNIsClosed = false;
+      }else{
+         LDNIsClosed = true;
+      }
+
+      //--- Reset flags if London session begins
+      if(startTime == time[currentBar]){ 
+         AsianLongBreak = false;
+         AsianShortBreak = false;
+      }
+
+      //--- Calculate open and close bar shift (from current bar, right to left)
+      sessionBeginBar = iBarShift(NULL,0,currentSession.ssStart, true);
+      sessionEndBar = iBarShift(NULL, 0, currentSession.ssEnd, true);
+      if( sessionBeginBar < 0 || sessionEndBar < 0 ) return;
+
+      //--- calculate session high and low
+      currentSession.ssHigh = high[iHighest(NULL,0,MODE_HIGH,sessionBeginBar-sessionEndBar+1,sessionEndBar)];
+      currentSession.ssLow = low[iLowest(NULL,0,MODE_LOW,sessionBeginBar-sessionEndBar+1,sessionEndBar)];
+      currentSession.ssRange = (currentSession.ssHigh - currentSession.ssLow)/myPoint;
+
+      //--- Only detect signal if still in London session and no signal has been found yet
+      if(!LDNIsClosed && !AsianLongBreak && open[currentBar+1]>currentSession.ssHigh && close[currentBar+1]>currentSession.ssHigh){
+         ssLongBreak[currentBar+1] = high[currentBar+1];
+         ssShortBreak[currentBar] = 0;
+         AsianLongBreak = true;
+      }else if(!LDNIsClosed && !AsianShortBreak && open[currentBar+1]<currentSession.ssLow && close[currentBar+1]<currentSession.ssLow){
+         ssLongBreak[currentBar] = 0;
+         ssShortBreak[currentBar+1] = low[currentBar+1];
+         AsianShortBreak = true;
+      }else{
+         ssLongBreak[currentBar]=0;
+         ssLongBreak[currentBar]=0;
+      }
+
+      //--- Drawing box
+      objName = "SS_Asian_" + TimeToString(currentSession.ssStart);
+      //--- For each rectangle object, remove then draw again
+      fn_DrawRectangle(objName,currentSession.ssStart,currentSession.ssEnd,currentSession.ssHigh,currentSession.ssLow,colorLondon,1,STYLE_DOT,true);   
+      
+      lblName = "SS_Asian_T_" + TimeToString(currentSession.ssStart);
+      lblDescription = "Range:" + IntegerToString(currentSession.ssRange) + " pips";
+      //--- For each label object, if already there then move
+      fn_DisplayText(lblName,currentSession.ssStart,currentSession.ssHigh,ANCHOR_LEFT_UPPER,0,10,"Calibri",clrCornflowerBlue,lblDescription);
+   
+   }     
+
+   return;
+}
+//--- End Session
 
 //+------------------------------------------------------------------+
 //| Function to draw trading sessions
@@ -237,11 +345,41 @@ string objName, lblName, lblDescription;
 //| Set the indicator properties                                     |
 //+------------------------------------------------------------------+
 void SetPropertiesIndicator(void) {
+int i;
+
    //--- Set a short name
    IndicatorSetString(INDICATOR_SHORTNAME, "Session Breakout");
 
    //--- Set a number of decimal places
    IndicatorSetInteger(INDICATOR_DIGITS, _Digits);
+
+   //--- Define buffers for drawing
+   SetIndexBuffer(0, ssLongBreak,INDICATOR_DATA);
+   SetIndexBuffer(1, ssShortBreak, INDICATOR_DATA);
+
+   ArraySetAsSeries(ssLongBreak,true);
+   ArraySetAsSeries(ssShortBreak,true);
+
+   //--- Set the labels
+   string text[]= {"Long Break", "Short Break"};
+   for(i=0; i<indicator_plots; i++)
+      PlotIndexSetString(i,PLOT_LABEL,text[i]);
+
+   //--- Long break
+   PlotIndexSetInteger(0,PLOT_DRAW_TYPE,DRAW_ARROW);
+   PlotIndexSetInteger(0,PLOT_ARROW,233);
+   PlotIndexSetInteger(0,PLOT_ARROW_SHIFT,-10);
+   PlotIndexSetInteger(0,PLOT_LINE_COLOR,clrNavy);
+
+   //--- Short break
+   PlotIndexSetInteger(1,PLOT_DRAW_TYPE,DRAW_ARROW);
+   PlotIndexSetInteger(1,PLOT_ARROW,234);
+   PlotIndexSetInteger(1,PLOT_ARROW_SHIFT,10);
+   PlotIndexSetInteger(1,PLOT_LINE_COLOR,clrFireBrick);
+
+   for(i=0; i<indicator_plots; i++)
+      PlotIndexSetDouble(i,PLOT_EMPTY_VALUE,0.0); 
+
    
    //--- Get session start hour of the day
    if(!fn_SessionStartTime(brokerDiffTime,SYD.ssStartHour,TKY.ssStartHour,LDN.ssStartHour,NYC.ssStartHour)) return;    
@@ -270,7 +408,8 @@ void ZeroTemporaryVariables(void)
 //+------------------------------------------------------------------+
 void ZeroIndicatorBuffers(void)
 {
-
+   ArrayInitialize(ssShortBreak,0);
+   ArrayInitialize(ssLongBreak,0);
 }
 
 //+------------------------------------------------------------------+
