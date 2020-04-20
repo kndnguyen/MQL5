@@ -203,7 +203,7 @@ string objName, lblName, lblDescription;
 
 	//--- Do not draw if timeframe is higher than M30
    if(Period() > PERIOD_M30) {
-      Print("Asian breakout only visible in M30 or below timeframe");
+      //Print("Asian breakout only visible in M30 or below timeframe");
       return;
    }
 
